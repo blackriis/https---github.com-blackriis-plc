@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @font-face {
+      font-family: 'TH Sarabun PSK';
+      src: url('https://raw.githubusercontent.com/SarabunConsortium/TH-Sarabun-PSK/master/THSarabunPSK%20Regular.ttf') format('truetype');
+      font-weight: 400 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    body { font-family: 'IBM Plex Sans Thai', sans-serif; }
+    .glass { background: rgba(255,255,255,.82); backdrop-filter: blur(14px); }
+    .card { border: 1px solid rgba(148,163,184,.25); box-shadow: 0 18px 45px rgba(15,23,42,.08); }
+
+    .pdf-exporting { width: 210mm; background: #fff; color: #111827; padding: 0; box-sizing: border-box; font-family: 'TH Sarabun PSK', 'Sarabun', 'TH Sarabun New', sans-serif; }
+    .pdf-exporting .pdf-page { width: 210mm; min-height: 297mm; padding: 10mm; box-sizing: border-box; background: #fff; }
+    .pdf-exporting table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12.2pt; }
+    .pdf-exporting th, .pdf-exporting td { border: 1px solid #334155; padding: 2.2px 3.2px; line-height: 1.08; vertical-align: middle; }
+    .pdf-exporting th { background: #f1f5f9; font-weight: 700; text-align: center; }
+    .pdf-exporting .title { text-align: center; font-weight: 700; font-size: 16pt; line-height: 1.18; margin: 0 0 5px; }
+    .pdf-exporting .subtitle { text-align: center; font-size: 12.5pt; line-height: 1.15; margin: 0 0 6px; color: #334155; }
+    .pdf-exporting .rt-title-line { color: #ec4899; font-weight: 700; font-size: 15pt; }
+    .pdf-exporting .rt-summary { margin-top: 5mm; font-size: 14pt; line-height: 1.35; }
+    .pdf-exporting .rt-summary-title { font-weight: 700; margin-bottom: 2mm; }
+    .pdf-exporting .dotted-line { border-bottom: 1px dotted #111827; min-height: 8mm; padding-left: 18mm; }
+    .pdf-exporting .note { font-size: 12.5pt; margin: 6px 0 6px; }
+    .pdf-exporting .detail-title { font-size: 12.5pt; font-weight: 700; margin: 6px 0 3px; }
+    .pdf-exporting .item-col { width: 32%; text-align: left; }
+    .pdf-exporting .num-col { width: 8.5%; text-align: center; }
+    .pdf-exporting .level-col { width: 7.6%; text-align: center; }
+    .pdf-exporting .pdf-section-title { font-size: 14pt; font-weight: 700; margin: 7mm 0 2mm; color: #0f172a; }
+    .pdf-exporting .pdf-radar-wrap { display: flex; justify-content: center; align-items: center; margin: 2mm 0 4mm; }
+    .pdf-exporting .pdf-radar-img { width: 126mm; max-height: 92mm; object-fit: contain; }
+    .pdf-exporting .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-bottom: 4mm; align-items: start; }
+    .pdf-exporting .analysis-box { border: 1px solid #cbd5e1; border-radius: 3mm; padding: 3mm; background: #f8fafc; page-break-inside: avoid; overflow: visible; }
+    .pdf-exporting .analysis-box h3 { font-size: 14pt; font-weight: 700; margin: 0 0 2mm; line-height: 1.35; }
+    .pdf-exporting .analysis-box ul { margin: 0; padding-left: 5mm; font-size: 13pt; line-height: 1.65; }
+    .pdf-exporting .analysis-box li { margin: 0 0 1.6mm 0; line-height: 1.65; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
+    .pdf-exporting .analysis-box p { margin: 0; font-size: 13pt; line-height: 1.65; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
+    .pdf-exporting .page-break { page-break-before: auto; break-before: auto; }
+    .pdf-exporting .pdf-final-section { min-height: 277mm; }
+    .pdf-exporting .pdf-final-section .pdf-section-title:first-child { margin-top: 0; }
+
+    .loading-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.42); backdrop-filter: blur(8px); }
+    .loading-overlay.hidden { display: none; }
+    .loading-card { width: min(360px, calc(100vw - 40px)); border-radius: 28px; background: rgba(255,255,255,.96); box-shadow: 0 24px 70px rgba(15,23,42,.22); padding: 28px 24px; text-align: center; border: 1px solid rgba(226,232,240,.9); }
+    .spinner { width: 56px; height: 56px; border-radius: 9999px; border: 5px solid #e2e8f0; border-top-color: #0ea5e9; border-right-color: #ec4899; animation: spin .85s linear infinite; margin: 0 auto 14px; }
+    .loading-title { font-weight: 700; color: #0f172a; font-size: 18px; }
+    .loading-text { color: #64748b; font-size: 14px; margin-top: 4px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media print {
+      body * { visibility: hidden !important; }
+      #pdfPrintArea, #pdfPrintArea * { visibility: visible !important; }
+      #pdfPrintArea { position: absolute; left: 0; top: 0; width: 210mm; min-height: 297mm; }
+      @page { size: A4 portrait; margin: 0; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-sky-50 via-white to-pink-50 text-slate-800">
+  <div id="loadingOverlay" class="loading-overlay hidden" role="status" aria-live="polite" aria-label="กำลังโหลดข้อมูล">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div id="loadingTitle" class="loading-title">กำลังโหลดข้อมูล</div>
+      <div id="loadingText" class="loading-text">กรุณารอสักครู่...</div>
+    </div>
+  </div>
+  <div class="max-w-7xl mx-auto p-4 md:p-8">
+    <header class="mb-6 rounded-3xl bg-gradient-to-r from-sky-500 to-pink-400 p-7 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <div class="text-sm opacity-90"><span id="reportTitle">แผนยกระดับคุณภาพผู้เรียนโดยใช้ผลการประเมินเป็นฐาน ด้วยกระบวนการ PLC ปีการศึกษา 2569</span></div>
+        <h1 id="schoolName" class="text-2xl md:text-4xl font-bold mt-1">กำลังโหลดข้อมูล...</h1>
+        <p id="schoolMeta" class="mt-2 opacity-90"></p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="refreshData()" class="rounded-2xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white border border-white/30 px-4 py-2.5 text-xs md:text-sm font-semibold transition-all flex items-center gap-1.5 shadow-sm active:scale-95">
+          <span>🔄 อัปเดตข้อมูลชีต</span>
+        </button>
+      </div>
+    </header>
+
+    <section id="reportTabs" class="hidden mb-5 flex flex-wrap gap-2"></section>
+
+    <section id="combinedOverview" class="hidden glass card rounded-3xl p-5 mb-6">
+      <div class="mb-4">
+        <h2 class="text-xl font-bold">ภาพรวม RT / NT / O-NET</h2>
+        <p class="text-sm text-slate-500">แสดงผลรวมก่อน แล้วเลือกประเภทเพื่อดูรายละเอียด ตาราง กราฟใยแมงมุม และรายบุคคล</p>
+      </div>
+      <div id="combinedReportCards" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5"></div>
+      <div id="rtNtOverviewTableWrap" class="overflow-x-auto mb-6">
+        <div class="font-bold text-slate-800 mb-2">ตารางภาพรวม RT / NT</div>
+        <table class="w-full text-sm border border-slate-300 bg-white">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="border border-slate-300 p-2 text-left">ประเภท</th>
+              <th class="border border-slate-300 p-2">ชั้น</th>
+              <th class="border border-slate-300 p-2">จำนวนนักเรียน</th>
+              <th class="border border-slate-300 p-2">ด้านที่ 1</th>
+              <th class="border border-slate-300 p-2">ด้านที่ 2</th>
+              <th class="border border-slate-300 p-2">เฉลี่ยรวม</th>
+              <th class="border border-slate-300 p-2">ปรับปรุง</th>
+              <th class="border border-slate-300 p-2">ดูรายละเอียด</th>
+            </tr>
+          </thead>
+          <tbody id="combinedRtNtTable"></tbody>
+        </table>
+      </div>
+
+      <div id="onetOverviewTableWrap" class="overflow-x-auto">
+        <div class="font-bold text-slate-800 mb-2">ตารางภาพรวม O-NET แยกตามรายวิชา</div>
+        <table class="w-full text-sm border border-slate-300 bg-white">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="border border-slate-300 p-2 text-left">ประเภท</th>
+              <th class="border border-slate-300 p-2">ชั้น</th>
+              <th class="border border-slate-300 p-2">จำนวนนักเรียน</th>
+              <th class="border border-slate-300 p-2">ภาษาไทย</th>
+              <th class="border border-slate-300 p-2">คณิตศาสตร์</th>
+              <th class="border border-slate-300 p-2">วิทยาศาสตร์</th>
+              <th class="border border-slate-300 p-2">ภาษาอังกฤษ</th>
+              <th class="border border-slate-300 p-2">ดูรายละเอียด</th>
+            </tr>
+          </thead>
+          <tbody id="combinedOnetTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="kpi" class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6"></section>
+
+
+    <section id="overviewSection" class="glass card rounded-3xl p-5 mb-6">
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">ตารางวิเคราะห์ภาพรวมโรงเรียน</h2>
+          <p class="text-sm text-slate-500">รูปแบบตารางตามรายงานการวิเคราะห์ผลการประเมิน กลุ่มสาระการเรียนรู้ / ความสามารถ / สมรรถนะ</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <div id="improveText" class="rounded-2xl bg-rose-50 text-rose-700 px-4 py-2 text-sm font-semibold"></div>
+          <button type="button" onclick="exportOverviewPdf()" class="rounded-2xl bg-slate-900 text-white px-4 py-2 text-sm font-bold shadow hover:bg-slate-700">Export PDF A4</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto mb-6">
+        <table class="w-full text-sm border border-slate-300 bg-white">
+          <thead>
+            <tr class="bg-slate-100">
+              <th class="border border-slate-300 p-2" rowspan="2">รายการ</th>
+              <th class="border border-slate-300 p-2" rowspan="2">คะแนนเต็ม</th>
+              <th class="border border-slate-300 p-2" rowspan="2">คะแนนสูงสุด</th>
+              <th class="border border-slate-300 p-2" rowspan="2">คะแนนต่ำสุด</th>
+              <th class="border border-slate-300 p-2" rowspan="2">ค่าเฉลี่ยร้อยละ</th>
+              <th class="border border-slate-300 p-2" rowspan="2">S.D.</th>
+              <th class="border border-slate-300 p-2" colspan="4">ร้อยละของนักเรียนตามระดับ</th>
+            </tr>
+            <tr class="bg-slate-100">
+              <th class="border border-slate-300 p-2">ดีมาก</th>
+              <th class="border border-slate-300 p-2">ดี</th>
+              <th class="border border-slate-300 p-2">พอใช้</th>
+              <th class="border border-slate-300 p-2">ปรับปรุง</th>
+            </tr>
+          </thead>
+          <tbody id="overviewTopTable"></tbody>
+        </table>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border border-slate-300 bg-white">
+          <thead class="bg-slate-100">
+            <tr>
+              <th class="border border-slate-300 p-2 text-left">รายด้าน/สาระ/มาตรฐาน</th>
+              <th class="border border-slate-300 p-2">คะแนนเต็ม</th>
+              <th class="border border-slate-300 p-2">คะแนนสูงสุด</th>
+              <th class="border border-slate-300 p-2">คะแนนต่ำสุด</th>
+              <th class="border border-slate-300 p-2">ค่าเฉลี่ยร้อยละ</th>
+              <th class="border border-slate-300 p-2">S.D.</th>
+              <th class="border border-slate-300 p-2">C.V. %</th>
+            </tr>
+          </thead>
+          <tbody id="overviewDetailTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="radarAnalysisSection" class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="glass card rounded-3xl p-5">
+        <h2 id="schoolChartTitle" class="text-xl font-bold mb-2">ภาพรวมโรงเรียน: กราฟใยแมงมุม</h2>
+        <p id="schoolChartDesc" class="text-sm text-slate-500 mb-4">ค่าเฉลี่ยร้อยละจำแนกตามสาระ</p>
+        <canvas id="schoolRadar" height="230"></canvas>
+      </div>
+      <div class="glass card rounded-3xl p-5">
+        <h2 class="text-xl font-bold mb-3">วิเคราะห์ภาพรวมโรงเรียน</h2>
+        <div id="schoolAnalysis" class="space-y-4"></div>
+      </div>
+    </section>
+
+    <section id="studentFilterSection" class="glass card rounded-3xl p-5 mb-6">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold">วิเคราะห์รายบุคคล</h2>
+          <p class="text-sm text-slate-500">เลือกนักเรียนเพื่อดูกราฟใยแมงมุม จุดเด่น จุดที่ควรพัฒนา และกิจกรรมเสนอแนะ</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+          <div class="relative min-w-[240px]">
+            <input type="text" id="studentSearchInput" placeholder="🔍 ค้นหาชื่อ หรือ เลขที่นั่งสอบ..." 
+                   class="w-full rounded-2xl border border-slate-200 pl-10 pr-4 py-2.5 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                   oninput="onStudentSearchInput(this.value)">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          </div>
+          <select id="studentSelect" class="rounded-2xl border border-slate-200 px-4 py-2.5 bg-white text-sm font-medium text-slate-800 min-w-[240px] focus:outline-none focus:ring-2 focus:ring-sky-500" onchange="selectStudentFromDropdown(this.value)"></select>
+        </div>
+      </div>
+    </section>
+
+    <section id="studentPanel" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="glass card rounded-3xl p-5">
+        <h2 class="text-xl font-bold mb-2">กราฟใยแมงมุมรายบุคคล</h2>
+        <div id="studentProfile" class="text-sm text-slate-600 mb-4"></div>
+        <canvas id="studentRadar" height="250"></canvas>
+      </div>
+      <div class="glass card rounded-3xl p-5">
+        <h2 class="text-xl font-bold mb-3">ผลวิเคราะห์และกิจกรรมเสนอแนะ</h2>
+        <div id="studentAnalysis" class="space-y-4"></div>
+      </div>
+    </section>
+
+    <section id="studentSummarySection" class="glass card rounded-3xl p-5">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div>
+          <h2 class="text-xl font-bold">ตารางสรุปรายชื่อนักเรียน</h2>
+          <p class="text-sm text-slate-500">แสดงคะแนนรายบุคคล คลิกแถวนักเรียนเพื่อเปิดการวิเคราะห์รายบุคคล</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative min-w-[200px]">
+            <input type="text" id="tableSearchInput" placeholder="🔍 ค้นหาชื่อ/เลขที่..." 
+                   class="w-full rounded-2xl border border-slate-200 pl-9 pr-3 py-1.5 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+                   oninput="onStudentTableFilterChange()">
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          </div>
+          <select id="tableQualityFilter" class="rounded-2xl border border-slate-200 px-3 py-1.5 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-500" onchange="onStudentTableFilterChange()">
+            <option value="ALL">ทุกระดับคุณภาพ</option>
+            <option value="ดีมาก">ดีมาก</option>
+            <option value="ดี">ดี</option>
+            <option value="พอใช้">พอใช้</option>
+            <option value="ปรับปรุง">ปรับปรุง</option>
+          </select>
+          <select id="pageSizeSelect" class="rounded-2xl border border-slate-200 px-3 py-1.5 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-500" onchange="onPageSizeChange(this.value)">
+            <option value="15">15 คน/หน้า</option>
+            <option value="25" selected>25 คน/หน้า</option>
+            <option value="50">50 คน/หน้า</option>
+            <option value="100">100 คน/หน้า</option>
+            <option value="ALL">แสดงทั้งหมด</option>
+          </select>
+          <span id="studentCountBadge" class="text-xs font-semibold px-3 py-1.5 rounded-2xl bg-sky-100 text-sky-800"></span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto max-h-[560px] overflow-y-auto rounded-2xl border border-slate-200/80 bg-white">
+        <table class="w-full text-sm">
+          <thead id="studentTableHead" class="bg-slate-100 sticky top-0 z-10 shadow-sm">
+            <tr>
+              <th class="text-left p-3">ลำดับ</th>
+              <th class="text-left p-3">เลขที่นั่งสอบ</th>
+              <th class="text-left p-3">ชื่อ-สกุล (ปิดบังนามสกุล)</th>
+              <th id="studentHeadFirst" class="text-right p-3">ด้านที่ 1</th>
+              <th id="studentHeadSecond" class="text-right p-3">ด้านที่ 2</th>
+              <th class="text-right p-3">รวม</th>
+              <th class="text-center p-3">ระดับ</th>
+            </tr>
+          </thead>
+          <tbody id="studentTable"></tbody>
+        </table>
+      </div>
+
+      <div id="studentPaginationBar" class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100 text-xs text-slate-600">
+        <div id="paginationInfo"></div>
+        <div id="paginationButtons" class="flex items-center gap-1.5"></div>
+      </div>
+    </section>
+  </div>
+
+<script>
+let loadingCount = 0;
+function showLoading(title, text) {
+  loadingCount++;
+  const overlay = document.getElementById('loadingOverlay');
+  if (!overlay) return;
+  document.getElementById('loadingTitle').textContent = title || 'กำลังโหลดข้อมูล';
+  document.getElementById('loadingText').textContent = text || 'กรุณารอสักครู่...';
+  overlay.classList.remove('hidden');
+}
+function hideLoading(force) {
+  if (force) loadingCount = 0;
+  else loadingCount = Math.max(0, loadingCount - 1);
+  if (loadingCount === 0) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.add('hidden');
+  }
+}
+
+let schoolChart, studentChart, dashboard, combinedDashboard, currentReportKey = '';
+const reportsMap = {};
+
+function init() {
+  showLoading('กำลังโหลดข้อมูล', 'ระบบกำลังอ่านข้อมูล RT/NT จาก Google Sheet...');
+  google.script.run.withSuccessHandler(data => {
+    try {
+      if (data && data.mode === 'COMBINED') {
+        combinedDashboard = data;
+        if (Array.isArray(data.reports)) {
+          data.reports.forEach(r => {
+            if (r && r.key) reportsMap[r.key] = r;
+          });
+        }
+        renderCombinedDashboard(data);
+      } else {
+        combinedDashboard = null;
+        if (data && data.report && data.report.key) {
+          reportsMap[data.report.key] = data;
+        }
+        renderDashboard(data);
+      }
+    } finally {
+      hideLoading(true);
+    }
+  }).withFailureHandler(err => {
+    hideLoading(true);
+    showError(err);
+  }).getInitialData();
+}
+
+function refreshData() {
+  showLoading('กำลังอัปเดตข้อมูล', 'กำลังล้างแคชและอ่านข้อมูลชีตใหม่จาก Google Sheet...');
+  google.script.run.withSuccessHandler(data => {
+    try {
+      for (let key in reportsMap) delete reportsMap[key];
+      if (data && data.mode === 'COMBINED') {
+        combinedDashboard = data;
+        if (Array.isArray(data.reports)) {
+          data.reports.forEach(r => {
+            if (r && r.key) reportsMap[r.key] = r;
+          });
+        }
+        renderCombinedDashboard(data);
+      } else {
+        combinedDashboard = null;
+        if (data && data.report && data.report.key) {
+          reportsMap[data.report.key] = data;
+        }
+        renderDashboard(data);
+      }
+    } finally {
+      hideLoading(true);
+    }
+  }).withFailureHandler(err => {
+    hideLoading(true);
+    showError(err);
+  }).refreshData();
+}
+
+function renderTabs(reports, activeKey, isCombined) {
+  const tabs = document.getElementById('reportTabs');
+  if (!reports || reports.length <= 1) {
+    tabs.classList.add('hidden');
+    tabs.innerHTML = '';
+    return;
+  }
+  tabs.classList.remove('hidden');
+  const combinedBtn = `<button type="button" onclick="showCombined()" class="px-4 py-2 rounded-2xl text-sm font-bold ${isCombined ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200'}">ภาพรวม RT + NT + O-NET</button>`;
+  const reportBtns = reports.map(r => `<button type="button" onclick="loadReport('${r.key}')" class="px-4 py-2 rounded-2xl text-sm font-bold ${activeKey === r.key ? 'bg-sky-600 text-white' : 'bg-white text-slate-700 border border-slate-200'}">${r.type} ${r.grade || ''}</button>`).join('');
+  tabs.innerHTML = combinedBtn + reportBtns;
+}
+
+function showCombined() {
+  if (combinedDashboard) renderCombinedDashboard(combinedDashboard);
+}
+
+function setReportSectionsVisible(visible) {
+  ['overviewSection','radarAnalysisSection','studentFilterSection','studentPanel','studentSummarySection'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (visible) el.classList.remove('hidden');
+    else el.classList.add('hidden');
+  });
+}
+
+function renderCombinedDashboard(data) {
+  dashboard = data;
+  currentReportKey = '';
+  renderTabs(data.reports || [], '', true);
+  setReportSectionsVisible(false);
+  document.getElementById('combinedOverview').classList.remove('hidden');
+  const report = data.report || { shortName: 'RT + NT' };
+  document.getElementById('reportTitle').textContent = 'แผนยกระดับคุณภาพผู้เรียนโดยใช้ผลการประเมินเป็นฐาน ด้วยกระบวนการ PLC ปีการศึกษา 2569';
+  document.getElementById('schoolName').textContent = data.school.name || 'โรงเรียน';
+  document.getElementById('schoolMeta').textContent = [safeGet_(data,'school.code',''), safeGet_(data,'school.office',''), 'ภาพรวมทั้ง RT / NT / O-NET'].filter(Boolean).join(' • ');
+  document.getElementById('kpi').innerHTML = '';
+
+  document.getElementById('combinedReportCards').innerHTML = (data.reports || []).map(r => {
+    const isOnet = r.type === 'ONET';
+    const metricCards = isOnet
+      ? onetSubjectCardsHtml_(r)
+      : `
+        <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">นักเรียน</div><div class="font-bold text-lg">${r.summary.totalStudents} คน</div></div>
+        <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">${escapeHtml_(r.firstShort || 'ด้านที่ 1')}</div><div class="font-bold text-lg">${r.summary.mathAvg}%</div></div>
+        <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">${escapeHtml_(r.secondShort || 'ด้านที่ 2')}</div><div class="font-bold text-lg">${r.summary.thaiAvg}%</div></div>
+        <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">ต้องปรับปรุง</div><div class="font-bold text-lg">${r.summary.improveCount} คน</div></div>`;
+    return `
+    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-sm text-slate-500">${escapeHtml_(r.title || r.type)}</div>
+          <h3 class="text-2xl font-bold mt-1">${escapeHtml_(r.type)} ${escapeHtml_(r.grade || '')}</h3>
+        </div>
+        <button type="button" onclick="loadReport('${r.key}')" class="rounded-2xl bg-sky-600 text-white px-4 py-2 text-sm font-bold">ดูรายละเอียด</button>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mt-4 text-sm">${metricCards}</div>
+    </div>`;
+  }).join('');
+
+  const reports = data.reports || [];
+  const rtNtReports = reports.filter(r => r.type !== 'ONET');
+  const onetReports = reports.filter(r => r.type === 'ONET');
+
+  document.getElementById('rtNtOverviewTableWrap').classList.toggle('hidden', !rtNtReports.length);
+  document.getElementById('onetOverviewTableWrap').classList.toggle('hidden', !onetReports.length);
+
+  document.getElementById('combinedRtNtTable').innerHTML = rtNtReports.map(r => `
+    <tr>
+      <td class="border border-slate-300 p-2 font-bold">${escapeHtml_(r.type)}</td>
+      <td class="border border-slate-300 p-2 text-center">${escapeHtml_(r.grade || '-')}</td>
+      <td class="border border-slate-300 p-2 text-center">${r.summary.totalStudents}</td>
+      <td class="border border-slate-300 p-2 text-center">${escapeHtml_(r.firstShort || 'ด้านที่ 1')} ${r.summary.mathAvg}%</td>
+      <td class="border border-slate-300 p-2 text-center">${escapeHtml_(r.secondShort || 'ด้านที่ 2')} ${r.summary.thaiAvg}%</td>
+      <td class="border border-slate-300 p-2 text-center font-bold">${r.summary.totalAvg}%</td>
+      <td class="border border-slate-300 p-2 text-center">${r.summary.improveCount} คน</td>
+      <td class="border border-slate-300 p-2 text-center"><button type="button" onclick="loadReport('${r.key}')" class="rounded-xl bg-slate-900 text-white px-3 py-1 text-xs font-bold">เปิด</button></td>
+    </tr>`).join('');
+
+  document.getElementById('combinedOnetTable').innerHTML = onetReports.map(r => `
+    <tr>
+      <td class="border border-slate-300 p-2 font-bold">${escapeHtml_(r.type)}</td>
+      <td class="border border-slate-300 p-2 text-center">${escapeHtml_(r.grade || '-')}</td>
+      <td class="border border-slate-300 p-2 text-center">${r.summary.totalStudents}</td>
+      <td class="border border-slate-300 p-2 text-center font-semibold">${subjectAverageValue_(r.summary, 'thai')}%</td>
+      <td class="border border-slate-300 p-2 text-center font-semibold">${subjectAverageValue_(r.summary, 'math')}%</td>
+      <td class="border border-slate-300 p-2 text-center font-semibold">${subjectAverageValue_(r.summary, 'science')}%</td>
+      <td class="border border-slate-300 p-2 text-center font-semibold">${subjectAverageValue_(r.summary, 'english')}%</td>
+      <td class="border border-slate-300 p-2 text-center"><button type="button" onclick="loadReport('${r.key}')" class="rounded-xl bg-slate-900 text-white px-3 py-1 text-xs font-bold">เปิด</button></td>
+    </tr>`).join('');
+}
+
+function loadReport(key) {
+  if (reportsMap && reportsMap[key]) {
+    renderDashboard(reportsMap[key]);
+    return;
+  }
+  showLoading('กำลังแสดงผลรายงาน', 'ระบบกำลังเตรียมตาราง กราฟ และรายชื่อนักเรียน...');
+  google.script.run.withSuccessHandler(data => {
+    try {
+      if (data && data.report && data.report.key) {
+        reportsMap[data.report.key] = data;
+      }
+      renderDashboard(data);
+    } finally {
+      hideLoading(true);
+    }
+  }).withFailureHandler(err => {
+    hideLoading(true);
+    showError(err);
+  }).getReportDashboard(key);
+}
+
+function renderDashboard(data) {
+  dashboard = data;
+  currentReportKey = data.report && data.report.key ? data.report.key : '';
+  if (combinedDashboard && combinedDashboard.reports) renderTabs(combinedDashboard.reports, currentReportKey, false);
+  setReportSectionsVisible(true);
+  document.getElementById('combinedOverview').classList.add('hidden');
+  const report = data.report || { shortName: 'NT/RT', grade: '', firstShort: 'ด้านที่ 1', secondShort: 'ด้านที่ 2' };
+  document.getElementById('reportTitle').textContent = 'แผนยกระดับคุณภาพผู้เรียนโดยใช้ผลการประเมินเป็นฐาน ด้วยกระบวนการ PLC ปีการศึกษา 2569';
+  document.getElementById('schoolName').textContent = data.school.name || 'โรงเรียน';
+  document.getElementById('schoolMeta').textContent = [safeGet_(data,'school.code',''), safeGet_(data,'school.office',''), safeGet_(data,'school.studentText',''), report.sheetName ? 'ชีต: ' + report.sheetName : ''].filter(Boolean).join(' • ');
+  const studentHeadFirst = document.getElementById('studentHeadFirst');
+  const studentHeadSecond = document.getElementById('studentHeadSecond');
+  if (studentHeadFirst) studentHeadFirst.textContent = report.firstShort || 'ด้านที่ 1';
+  if (studentHeadSecond) studentHeadSecond.textContent = report.secondShort || 'ด้านที่ 2';
+  if (report.type === 'ONET') {
+    document.getElementById('kpi').innerHTML = buildOnetKpiCards_(data).join('');
+  } else {
+    document.getElementById('kpi').innerHTML = [
+      kpiCard('นักเรียน', data.summary.totalStudents + ' คน'),
+      kpiCard(report.firstShort || 'ด้านที่ 1', data.summary.mathAvg + '%'),
+      kpiCard(report.secondShort || 'ด้านที่ 2', data.summary.thaiAvg + '%'),
+      kpiCard('เฉลี่ยรวม', data.summary.totalAvg + '%'),
+      kpiCard('ต้องปรับปรุง', data.summary.improveCount + ' คน')
+    ].join('');
+  }
+
+  renderOverviewTables(data.overviewTables);
+  const chartTitle = document.getElementById('schoolChartTitle');
+  const chartDesc = document.getElementById('schoolChartDesc');
+  if (chartTitle) chartTitle.textContent = data.report && data.report.type === 'ONET' ? 'ภาพรวมโรงเรียน: กราฟแท่งแยกรายวิชา' : 'ภาพรวมโรงเรียน: กราฟใยแมงมุม';
+  if (chartDesc) chartDesc.textContent = data.report && data.report.type === 'ONET' ? 'ค่าเฉลี่ยร้อยละแยกตามรายวิชา O-NET' : 'ค่าเฉลี่ยร้อยละจำแนกตามสาระ';
+  renderSchoolRadar(data.strandAverages || []);
+  renderSchoolAnalysis(data.analysis);
+  renderStudentList(data.students || []);
+  if (data.students && data.students.length) loadStudent(data.students[0].id);
+  else document.getElementById('studentPanel').classList.add('hidden');
+}
+
+function kpiCard(label, value) {
+  return `<div class="glass card rounded-3xl p-4"><div class="text-sm text-slate-500">${label}</div><div class="text-2xl font-bold mt-1">${value}</div></div>`;
+}
+
+function getOnetSubjects_(report) {
+  if (report && Array.isArray(report.onetSubjects) && report.onetSubjects.length) return report.onetSubjects;
+  return [
+    { key: 'thai', label: 'ภาษาไทย', short: 'ภาษาไทย' },
+    { key: 'math', label: 'คณิตศาสตร์', short: 'คณิตศาสตร์' },
+    { key: 'science', label: 'วิทยาศาสตร์', short: 'วิทยาศาสตร์' },
+    { key: 'english', label: 'ภาษาอังกฤษ', short: 'ภาษาอังกฤษ' }
+  ];
+}
+
+function subjectAverageValue_(summary, key) {
+  if (!summary) return '-';
+  const map = { thai: 'mathAvg', math: 'thaiAvg', science: 'scienceAvg', english: 'englishAvg' };
+  const field = map[key] || (key + 'Avg');
+  const v = summary[field];
+  return (v === null || typeof v === 'undefined' || v === '') ? '-' : v;
+}
+
+function buildOnetKpiCards_(data) {
+  const report = data.report || {};
+  const summary = data.summary || {};
+  const cards = [kpiCard('นักเรียน', (summary.totalStudents || 0) + ' คน')];
+  getOnetSubjects_(report).forEach(sub => cards.push(kpiCard(sub.short || sub.label, subjectAverageValue_(summary, sub.key) + '%')));
+  return cards;
+}
+
+function onetSubjectCardsHtml_(r) {
+  const subjectCards = getOnetSubjects_(r).map(sub => `
+    <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">${escapeHtml_(sub.short || sub.label)}</div><div class="font-bold text-lg">${subjectAverageValue_(r.summary, sub.key)}%</div></div>`).join('');
+  return `<div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">นักเรียน</div><div class="font-bold text-lg">${r.summary.totalStudents} คน</div></div>${subjectCards}`;
+}
+
+function onetSubjectText_(r) {
+  return getOnetSubjects_(r).map(sub => `${sub.short || sub.label} ${subjectAverageValue_(r.summary, sub.key)}%`).join(' • ');
+}
+
+
+function renderOverviewTables(tables) {
+  if (!tables) return;
+  document.getElementById('improveText').textContent = tables.improveText || '';
+  document.getElementById('overviewTopTable').innerHTML = (tables.topTable || []).map(r => `
+    <tr>
+      <td class="border border-slate-300 p-2 font-semibold">${formatOverviewItem_(r)}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.fullScore)}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.max)}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.min)}</td>
+      <td class="border border-slate-300 p-2 text-center font-semibold">${fmt(r.avg)}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.sd)}</td>
+      <td class="border border-slate-300 p-2 text-center">${dashZero(r.veryGood)}</td>
+      <td class="border border-slate-300 p-2 text-center">${dashZero(r.good)}</td>
+      <td class="border border-slate-300 p-2 text-center">${dashZero(r.fair)}</td>
+      <td class="border border-slate-300 p-2 text-center">${dashZero(r.improve)}</td>
+    </tr>`).join('');
+
+  document.getElementById('overviewDetailTable').innerHTML = (tables.detailRows || []).map(r => {
+    const isSubject = isOverviewGroupRow_(r.item);
+    return `<tr class="${isSubject ? 'bg-sky-50 font-bold' : ''}">
+      <td class="border border-slate-300 p-2">${r.item}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.fullScore)}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.max)}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.min)}</td>
+      <td class="border border-slate-300 p-2 text-center font-semibold">${fmt(r.avg)}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.sd)}</td>
+      <td class="border border-slate-300 p-2 text-center">${fmt(r.cv)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function formatOverviewItem_(r) {
+  const report = dashboard && dashboard.report ? dashboard.report : {};
+  if (report.type === 'RT' && r && r.item === 'RT') {
+    return `RT<br><span class="font-normal">ปีการศึกษา ${r.academicYear || report.academicYear || '2568'}</span>`;
+  }
+  return escapeHtml_(r && r.item ? r.item : '');
+}
+
+function isOverviewGroupRow_(label) {
+  const text = String(label || '');
+  return text.startsWith('ด้าน') || text.startsWith('การอ่าน') || /^\d+\./.test(text);
+}
+
+function fmt(v) {
+  if (v === '' || v === null || typeof v === 'undefined') return '-';
+  const n = Number(v);
+  if (isNaN(n)) return '-';
+  return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function dashZero(v) {
+  const n = Number(v);
+  if (!n) return '-';
+  return fmt(n);
+}
+
+function renderSchoolRadar(rows) {
+  const ctx = document.getElementById('schoolRadar');
+  if (schoolChart) schoolChart.destroy();
+  const isOnet = dashboard && dashboard.report && dashboard.report.type === 'ONET';
+  if (isOnet) {
+    schoolChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: rows.map(x => x.shortLabel || x.label),
+        datasets: [{
+          label: 'ค่าเฉลี่ยโรงเรียน',
+          data: rows.map(x => Number(x.avg) || 0),
+          borderWidth: 1,
+          borderRadius: 10,
+          maxBarThickness: 54
+        }]
+      },
+      options: barOptions_()
+    });
+    return;
+  }
+  schoolChart = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: rows.map(x => x.shortLabel),
+      datasets: [{ label: 'ค่าเฉลี่ยโรงเรียน', data: rows.map(x => x.avg), fill: true }]
+    },
+    options: radarOptions_()
+  });
+}
+
+function renderSchoolAnalysis(a) {
+  document.getElementById('schoolAnalysis').innerHTML = `
+    ${sectionBlock('ภาพรวม', [a.overview])}
+    ${sectionBlock('จุดเด่น', a.strengths)}
+    ${sectionBlock('แนวทางการพัฒนา', a.development)}
+    ${sectionBlock('ระบบเสนอแนะกิจกรรม', a.activities)}
+  `;
+}
+
+let allStudentsList = [];
+let filteredStudentsList = [];
+let currentPage = 1;
+let pageSize = 25;
+let currentSelectedStudentId = '';
+
+function renderStudentList(students) {
+  allStudentsList = Array.isArray(students) ? students : [];
+  currentSelectedStudentId = allStudentsList.length ? String(allStudentsList[0].id) : '';
+
+  const searchInput = document.getElementById('studentSearchInput');
+  const tableSearchInput = document.getElementById('tableSearchInput');
+  const qualityFilter = document.getElementById('tableQualityFilter');
+  if (searchInput) searchInput.value = '';
+  if (tableSearchInput) tableSearchInput.value = '';
+  if (qualityFilter) qualityFilter.value = 'ALL';
+
+  currentPage = 1;
+  applyStudentFilters();
+}
+
+function applyStudentFilters() {
+  const query = (document.getElementById('tableSearchInput')?.value || document.getElementById('studentSearchInput')?.value || '').trim().toLowerCase();
+  const quality = document.getElementById('tableQualityFilter')?.value || 'ALL';
+
+  filteredStudentsList = allStudentsList.filter(s => {
+    if (!s) return false;
+    const matchQuery = !query || 
+      String(s.maskedName || '').toLowerCase().includes(query) ||
+      String(s.name || '').toLowerCase().includes(query) ||
+      String(s.seatNo || '').toLowerCase().includes(query) ||
+      String(s.no || '').includes(query);
+
+    const matchQuality = quality === 'ALL' || s.quality === quality;
+    return matchQuery && matchQuality;
+  });
+
+  updateStudentSelectDropdown(query);
+  renderStudentTablePage();
+}
+
+function updateStudentSelectDropdown(query) {
+  const select = document.getElementById('studentSelect');
+  if (!select) return;
+
+  const optionsList = query 
+    ? allStudentsList.filter(s => String(s.maskedName || '').toLowerCase().includes(query) || String(s.seatNo || '').toLowerCase().includes(query) || String(s.no || '').includes(query))
+    : allStudentsList;
+
+  select.innerHTML = optionsList.map(s => 
+    `<option value="${s.id}" ${String(s.id) === String(currentSelectedStudentId) ? 'selected' : ''}>${s.no}. ${s.maskedName}${s.seatNo ? ' (' + s.seatNo + ')' : ''}</option>`
+  ).join('');
+
+  if (currentSelectedStudentId && Array.from(select.options).some(o => o.value === currentSelectedStudentId)) {
+    select.value = currentSelectedStudentId;
+  }
+}
+
+function renderStudentTablePage() {
+  const report = (dashboard && dashboard.report) || { firstShort: 'ด้านที่ 1', secondShort: 'ด้านที่ 2' };
+  const isOnet = report && report.type === 'ONET';
+
+  const total = filteredStudentsList.length;
+  const actualPageSize = pageSize === 'ALL' ? (total || 1) : Number(pageSize);
+  const totalPages = Math.ceil(total / actualPageSize) || 1;
+
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const startIdx = (currentPage - 1) * actualPageSize;
+  const endIdx = pageSize === 'ALL' ? total : Math.min(startIdx + actualPageSize, total);
+  const pageStudents = filteredStudentsList.slice(startIdx, endIdx);
+
+  const countBadge = document.getElementById('studentCountBadge');
+  if (countBadge) {
+    countBadge.textContent = total ? `แสดง ${startIdx + 1}-${endIdx} จาก ${total} คน` : 'ไม่พบข้อมูลนักเรียน';
+  }
+
+  if (isOnet) {
+    document.getElementById('studentTableHead').innerHTML = `
+      <tr>
+        <th class="text-left p-3">ลำดับ</th>
+        <th class="text-left p-3">เลขที่นั่งสอบ</th>
+        <th class="text-left p-3">ชื่อ-สกุล (ปิดบังนามสกุล)</th>
+        <th class="text-right p-3">ภาษาไทย</th>
+        <th class="text-right p-3">คณิตศาสตร์</th>
+        <th class="text-right p-3">วิทยาศาสตร์</th>
+        <th class="text-right p-3">ภาษาอังกฤษ</th>
+        <th class="text-right p-3">รวม</th>
+        <th class="text-center p-3">ระดับ</th>
+      </tr>`;
+  } else {
+    document.getElementById('studentTableHead').innerHTML = `
+      <tr>
+        <th class="text-left p-3">ลำดับ</th>
+        <th class="text-left p-3">เลขที่นั่งสอบ</th>
+        <th class="text-left p-3">ชื่อ-สกุล (ปิดบังนามสกุล)</th>
+        <th id="studentHeadFirst" class="text-right p-3">${report.firstShort || 'ด้านที่ 1'}</th>
+        <th id="studentHeadSecond" class="text-right p-3">${report.secondShort || 'ด้านที่ 2'}</th>
+        <th class="text-right p-3">รวม</th>
+        <th class="text-center p-3">ระดับ</th>
+      </tr>`;
+  }
+
+  const tbody = document.getElementById('studentTable');
+  if (!pageStudents.length) {
+    tbody.innerHTML = `<tr><td colspan="${isOnet ? 9 : 7}" class="text-center py-8 text-slate-400">ไม่พบรายชื่อนักเรียนที่ตรงกับเงื่อนไขค้นหา</td></tr>`;
+  } else {
+    tbody.innerHTML = pageStudents.map(s => {
+      const isSelected = String(s.id) === String(currentSelectedStudentId);
+      const rowBgClass = isSelected 
+        ? 'bg-sky-100/90 text-sky-950 font-semibold border-l-4 border-sky-500' 
+        : 'hover:bg-sky-50/70 border-b border-slate-100 text-slate-700';
+
+      if (isOnet) {
+        return `
+          <tr class="transition-colors cursor-pointer ${rowBgClass}" onclick="selectStudentRow('${s.id}')">
+            <td class="p-3">${s.no}</td>
+            <td class="p-3">${s.seatNo || '-'}</td>
+            <td class="p-3 font-medium">${s.maskedName}</td>
+            <td class="p-3 text-right">${formatPercent_(onetStudentValue_(s, 'thai'))}</td>
+            <td class="p-3 text-right">${formatPercent_(onetStudentValue_(s, 'math'))}</td>
+            <td class="p-3 text-right">${formatPercent_(onetStudentValue_(s, 'science'))}</td>
+            <td class="p-3 text-right">${formatPercent_(onetStudentValue_(s, 'english'))}</td>
+            <td class="p-3 text-right font-bold">${formatPercent_(s.totalAvg)}</td>
+            <td class="p-3 text-center">${levelBadge(s.quality)}</td>
+          </tr>`;
+      }
+      return `
+        <tr class="transition-colors cursor-pointer ${rowBgClass}" onclick="selectStudentRow('${s.id}')">
+          <td class="p-3">${s.no}</td>
+          <td class="p-3">${s.seatNo || '-'}</td>
+          <td class="p-3 font-medium">${s.maskedName}</td>
+          <td class="p-3 text-right">${formatPercent_(s.mathAvg)}</td>
+          <td class="p-3 text-right">${formatPercent_(s.thaiAvg)}</td>
+          <td class="p-3 text-right font-bold">${formatPercent_(s.totalAvg)}</td>
+          <td class="p-3 text-center">${levelBadge(s.quality)}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  renderPaginationControls(totalPages);
+}
+
+function renderPaginationControls(totalPages) {
+  const infoEl = document.getElementById('paginationInfo');
+  const btnsEl = document.getElementById('paginationButtons');
+  if (!infoEl || !btnsEl) return;
+
+  if (pageSize === 'ALL' || totalPages <= 1) {
+    infoEl.textContent = `แสดงทั้งหมด ${filteredStudentsList.length} คน`;
+    btnsEl.innerHTML = '';
+    return;
+  }
+
+  infoEl.textContent = `หน้า ${currentPage} จาก ${totalPages}`;
+
+  let btnsHtml = '';
+  btnsHtml += `<button type="button" onclick="changePage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled class="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed"' : 'class="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"'}>‹ ก่อนหน้า</button>`;
+
+  const maxButtons = 5;
+  let startP = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+  let endP = Math.min(totalPages, startP + maxButtons - 1);
+  if (endP - startP + 1 < maxButtons) {
+    startP = Math.max(1, endP - maxButtons + 1);
+  }
+
+  for (let p = startP; p <= endP; p++) {
+    const activeCls = p === currentPage 
+      ? 'bg-sky-600 text-white font-bold' 
+      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50';
+    btnsHtml += `<button type="button" onclick="changePage(${p})" class="px-3 py-1 rounded-xl text-xs transition-colors ${activeCls}">${p}</button>`;
+  }
+
+  btnsHtml += `<button type="button" onclick="changePage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled class="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-400 cursor-not-allowed"' : 'class="px-2.5 py-1 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-medium"'}>ถัดไป ›</button>`;
+
+  btnsEl.innerHTML = btnsHtml;
+}
+
+function changePage(newPage) {
+  currentPage = newPage;
+  renderStudentTablePage();
+}
+
+function onPageSizeChange(val) {
+  pageSize = val;
+  currentPage = 1;
+  renderStudentTablePage();
+}
+
+function onStudentSearchInput(val) {
+  const tableInput = document.getElementById('tableSearchInput');
+  if (tableInput) tableInput.value = val;
+  currentPage = 1;
+  applyStudentFilters();
+}
+
+function onStudentTableFilterChange() {
+  const mainInput = document.getElementById('studentSearchInput');
+  const tableInput = document.getElementById('tableSearchInput');
+  if (mainInput && tableInput) mainInput.value = tableInput.value;
+  currentPage = 1;
+  applyStudentFilters();
+}
+
+function selectStudentRow(id) {
+  currentSelectedStudentId = String(id);
+  const select = document.getElementById('studentSelect');
+  if (select) select.value = currentSelectedStudentId;
+  renderStudentTablePage();
+  loadStudent(currentSelectedStudentId);
+}
+
+function selectStudentFromDropdown(id) {
+  currentSelectedStudentId = String(id);
+  renderStudentTablePage();
+  loadStudent(currentSelectedStudentId);
+}
+
+function onetStudentValue_(student, key) {
+  const map = { thai: 'mathAvg', math: 'thaiAvg', science: 'scienceAvg', english: 'englishAvg' };
+  const field = map[key] || (key + 'Avg');
+  return student ? student[field] : '';
+}
+
+function formatPercent_(value) {
+  return (value === null || typeof value === 'undefined' || value === '' || isNaN(Number(value))) ? '-' : value + '%';
+}
+
+function loadStudent(id) {
+  if (!id) return;
+  if (dashboard && (dashboard._rawStudents || dashboard.students)) {
+    const detailData = getStudentDetailClient(dashboard, id);
+    if (detailData) {
+      renderStudentDetail(detailData);
+      return;
+    }
+  }
+  showLoading('กำลังโหลดข้อมูลรายบุคคล', 'ระบบกำลังสร้างกราฟใยแมงมุมและวิเคราะห์รายบุคคล...');
+  google.script.run.withSuccessHandler(data => {
+    try {
+      renderStudentDetail(data);
+    } finally {
+      hideLoading(true);
+    }
+  }).withFailureHandler(err => {
+    hideLoading(true);
+    showError(err);
+  }).getStudentDetail(currentReportKey, id);
+}
+
+function getStudentDetailClient(data, studentId) {
+  const report = data.report;
+  const students = data._rawStudents || data.students || [];
+  const student = students.find(s => s && String(s.id) === String(studentId));
+  if (!student) return null;
+
+  const studentRadar = buildStudentRadarRowsClient(student, students, report);
+  const recommendations = buildStudentRecommendationsClient(student, report);
+
+  return {
+    report: report,
+    profile: {
+      id: student.id,
+      no: student.no,
+      seatNo: student.seatNo,
+      maskedName: student.maskedName,
+      type: student.type,
+      mathAvg: student.mathAvg,
+      thaiAvg: student.thaiAvg,
+      totalAvg: student.totalAvg,
+      quality: student.quality
+    },
+    radar: studentRadar,
+    strengths: (student.strands || []).filter(x => x && x.percent >= 70).sort((a,b) => b.percent - a.percent),
+    needs: (student.strands || []).filter(x => x && x.percent < 50).sort((a,b) => a.percent - b.percent),
+    detailRows: student.detailRows || [],
+    recommendations: recommendations
+  };
+}
+
+function buildStudentRadarRowsClient(student, allStudents, report) {
+  const rows = [];
+  const studentStrands = (student && student.strands || []).filter(x => x && x.label);
+  const map = {};
+
+  (allStudents || []).forEach(st => {
+    (st && st.strands || []).forEach(x => {
+      if (!x || !x.label) return;
+      const key = radarKeyJS(x.subject, x.label);
+      if (!map[key]) map[key] = { subject: x.subject, label: x.label, values: [] };
+      const n = Number(x.percent);
+      if (!isNaN(n)) map[key].values.push(n);
+    });
+  });
+
+  studentStrands.forEach(x => {
+    const key = radarKeyJS(x.subject, x.label);
+    const schoolAvg = map[key] && map[key].values.length ? averageJS(map[key].values) : NaN;
+    rows.push({
+      label: shortenLabelJS(x.subject, x.label, report),
+      fullLabel: x.label,
+      subject: x.subject,
+      student: round2JS(Number(x.percent) || 0),
+      school: !isNaN(schoolAvg) ? round2JS(schoolAvg) : 0,
+      schoolAvg: !isNaN(schoolAvg) ? round2JS(schoolAvg) : 0
+    });
+  });
+
+  if (!rows.length) {
+    const firstValues = (allStudents || []).map(s => Number(s && s.mathAvg)).filter(x => !isNaN(x));
+    const secondValues = (allStudents || []).map(s => Number(s && s.thaiAvg)).filter(x => !isNaN(x));
+    rows.push({ label: report && report.firstShort || 'ด้านที่ 1', subject: report && report.firstLabel || '', student: round2JS(Number(student.mathAvg) || 0), school: round2JS(averageJS(firstValues)), schoolAvg: round2JS(averageJS(firstValues)) });
+    rows.push({ label: report && report.secondShort || 'ด้านที่ 2', subject: report && report.secondLabel || '', student: round2JS(Number(student.thaiAvg) || 0), school: round2JS(averageJS(secondValues)), schoolAvg: round2JS(averageJS(secondValues)) });
+  }
+
+  return rows;
+}
+
+function radarKeyJS(subject, label) {
+  return String(subject || '').replace(/\s+/g, '').replace(/[()（）]/g, '').trim() + '|' + String(label || '').replace(/\s+/g, '').replace(/[()（）]/g, '').trim();
+}
+
+function averageJS(arr) {
+  const nums = (arr || []).map(Number).filter(x => !isNaN(x));
+  return nums.length ? nums.reduce((a,b)=>a+b,0) / nums.length : 0;
+}
+
+function round2JS(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+function shortenLabelJS(subject, label, report) {
+  const cleanLabel = String(label || '').trim();
+  const cleanSubject = String(subject || '').trim();
+
+  if (report && report.type === 'ONET') {
+    return cleanLabel || cleanSubject || '-';
+  }
+
+  if (report && report.type === 'RT') {
+    const prefix = cleanSubject === report.firstLabel ? 'ออกเสียง ' : 'รู้เรื่อง ';
+    return prefix + cleanLabel.replace('การ', '');
+  }
+
+  return (cleanSubject === 'ด้านคณิตศาสตร์' ? 'คณิต ' : 'ไทย ') + cleanLabel.replace('สาระที่ ', 'ส');
+}
+
+function studentOverviewTextJS(student, report) {
+  if (report && report.type === 'ONET') {
+    const parts = (report.onetSubjects || []).map(sub => {
+      const row = student.subjects && student.subjects[sub.key] && student.subjects[sub.key].metrics[0];
+      return `${sub.short || sub.label} ${row ? round2JS(row.percent) : 0}%`;
+    });
+    return `${student.maskedName} ได้คะแนนเฉลี่ยรวม O-NET ${student.totalAvg}% อยู่ระดับ${student.quality} ${parts.join(' • ')}`;
+  }
+  return `${student.maskedName} ได้คะแนนเฉลี่ยรวม ${student.totalAvg}% อยู่ระดับ${student.quality} ${report ? report.firstShort || 'ด้านที่ 1' : 'ด้านที่ 1'} ${student.mathAvg}% และ${report ? report.secondShort || 'ด้านที่ 2' : 'ด้านที่ 2'} ${student.thaiAvg}%`;
+}
+
+function buildActivitySuggestionsJS(items, report) {
+  if (!items || items.length === 0) {
+    return ['จัดกิจกรรมโจทย์ท้าทายรายสัปดาห์ แบ่งกลุ่มให้นักเรียนอธิบายวิธีคิด และใช้แบบฝึกสะสมแต้ม'];
+  }
+  const output = [];
+  items.forEach(x => {
+    const text = `${x.subject} ${x.label}`;
+    if (report && report.type === 'RT') {
+      if (/อ่านออกเสียง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('การอ่านคำ: ฝึกอ่านคำพื้นฐานวันละ 10 นาที ใช้บัตรคำ เกมจับคู่คำกับภาพ และอ่านซ้ำเพื่อเพิ่มความคล่องแคล่ว');
+      else if (/อ่านออกเสียง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('การอ่านข้อความ: ฝึกอ่านประโยคและข้อความสั้นแบบเป็นจังหวะ ครูอ่านนำ นักเรียนอ่านตาม แล้วจับเวลาอ่านอย่างเหมาะสม');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านคำ: ฝึกจับคู่คำกับความหมาย เลือกภาพแทนคำ และใช้คำแต่งประโยคสั้น ๆ');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ประโยค/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านประโยค: ให้นักเรียนอ่านประโยคแล้วตอบคำถามสั้น ๆ เลือกภาพที่ตรงกับประโยค และเรียงลำดับเหตุการณ์');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านข้อความ: ใช้กิจกรรมอ่านนิทานสั้น ตอบคำถาม 5W1H และขีดเส้นใต้หลักฐานจากเรื่อง');
+      else output.push(`${text}: จัดแบบฝึกอ่านรายกลุ่มและติดตามผลด้วยแบบทดสอบสั้นหลังเรียน`);
+      return;
+    }
+    if (report && report.type === 'ONET') {
+      if (/ภาษาไทย/.test(x.label)) output.push('O-NET ภาษาไทย: ฝึกอ่านจับใจความ วิเคราะห์คำถาม และเขียนสรุปใจความสำคัญจากบทอ่านสั้น ๆ');
+      else if (/คณิตศาสตร์/.test(x.label)) output.push('O-NET คณิตศาสตร์: ฝึกโจทย์พื้นฐานและโจทย์สถานการณ์จริง พร้อมทบทวนวิธีคิดทีละขั้นตอน');
+      else if (/วิทยาศาสตร์/.test(x.label)) output.push('O-NET วิทยาศาสตร์: ใช้กิจกรรมทดลองง่าย ๆ อ่านกราฟ/ตาราง และฝึกอธิบายเหตุผลจากหลักฐาน');
+      else if (/อังกฤษ|ภาษาอังกฤษ/.test(x.label)) output.push('O-NET ภาษาอังกฤษ: ฝึกคำศัพท์พื้นฐาน โครงสร้างประโยค และอ่านบทสนทนาสั้นเพื่อจับใจความ');
+      else output.push(`${text}: จัดแบบฝึก O-NET รายวิชาและติดตามผลด้วยแบบทดสอบสั้นหลังเรียน`);
+      return;
+    }
+    if (/คณิตศาสตร์/.test(x.subject) && /สาระที่ 1/.test(x.label)) output.push('คณิตศาสตร์ สาระที่ 1: ใช้กิจกรรมบันไดจำนวน เกมจับคู่โจทย์กับวิธีคิด และฝึกโจทย์บวกลบคูณหารวันละ 10 นาที');
+    else if (/คณิตศาสตร์/.test(x.subject) && /สาระที่ 2/.test(x.label)) output.push('คณิตศาสตร์ สาระที่ 2: ใช้สื่อของจริง เช่น ไม้บรรทัด นาฬิกา รูปเรขาคณิต และภารกิจวัดสิ่งของในห้องเรียน');
+    else if (/คณิตศาสตร์/.test(x.subject) && /สาระที่ 3/.test(x.label)) output.push('คณิตศาสตร์ สาระที่ 3: ให้นักเรียนเก็บข้อมูลจริง ทำตาราง แผนภูมิแท่ง และตอบคำถามจากข้อมูล');
+    else if (/ภาษาไทย/.test(x.subject) && /สาระที่ 1/.test(x.label)) output.push('ภาษาไทย สาระที่ 1: อ่านจับใจความจากเรื่องสั้น ใช้เทคนิค 5W1H และให้ขีดเส้นใต้หลักฐานจากเรื่อง');
+    else if (/ภาษาไทย/.test(x.subject) && /สาระที่ 2/.test(x.label)) output.push('ภาษาไทย สาระที่ 2: ฝึกเขียนประโยคสั้น เขียนย่อหน้า 3 ส่วน และตรวจแก้คำผิดร่วมกัน');
+    else if (/ภาษาไทย/.test(x.subject) && /สาระที่ 3/.test(x.label)) output.push('ภาษาไทย สาระที่ 3: กิจกรรมฟังแล้วเล่าใหม่ จับคู่สนทนา และสรุปสาระสำคัญด้วยคำของตนเอง');
+    else if (/ภาษาไทย/.test(x.subject) && /สาระที่ 4/.test(x.label)) output.push('ภาษาไทย สาระที่ 4: เกมจัดหมวดคำ แต่งประโยคจากคำที่กำหนด และแบบฝึกหลักภาษาแบบสั้น');
+    else if (/ภาษาไทย/.test(x.subject) && /สาระที่ 5/.test(x.label)) output.push('ภาษาไทย สาระที่ 5: อ่านนิทาน/วรรณคดีสั้น ระบุข้อคิด ตัวละคร และเชื่อมโยงกับชีวิตประจำวัน');
+    else output.push(`${text}: จัดแบบฝึกเสริมรายกลุ่มและติดตามผลด้วยแบบทดสอบสั้นหลังเรียน`);
+  });
+  return Array.from(new Set(output)).slice(0, 6);
+}
+
+function buildStudentRecommendationsClient(student, report) {
+  const needs = (student && student.strands || []).slice().sort((a,b)=>a.percent-b.percent).filter(x=>x && x.percent < 60).slice(0,4);
+  const strengths = (student && student.strands || []).slice().sort((a,b)=>b.percent-a.percent).filter(x=>x && x.percent >= 70).slice(0,3);
+  return {
+    overview: studentOverviewTextJS(student, report),
+    strengths: strengths.length ? strengths.map(x=>`${x.subject} ${x.label} (${x.percent}%)`) : ['ยังไม่มีองค์ประกอบที่เด่นชัด ควรฝึกพื้นฐานแบบสั้นและต่อเนื่อง'],
+    development: needs.length ? needs.map(x=>`${x.subject} ${x.label} (${x.percent}%)`) : ['ไม่มีองค์ประกอบที่ต่ำกว่า 60% ให้เสริมโจทย์ประยุกต์และโจทย์วิเคราะห์'],
+    activities: buildActivitySuggestionsJS(needs, report)
+  };
+}
+
+function renderStudentDetail(data) {
+  document.getElementById('studentPanel').classList.remove('hidden');
+  const report = data.report || (dashboard && dashboard.report) || { firstShort: 'ด้านที่ 1', secondShort: 'ด้านที่ 2' };
+  const p = data.profile;
+  document.getElementById('studentProfile').innerHTML = `
+    <div class="flex flex-wrap gap-2 items-center">
+      <span class="font-bold text-slate-800">${p.maskedName}</span>
+      <span>เลขที่นั่งสอบ ${p.seatNo || '-'}</span>
+      <span>${levelBadge(p.quality)}</span>
+    </div>
+    <div class="mt-1">${report.firstShort || 'ด้านที่ 1'} ${p.mathAvg}% • ${report.secondShort || 'ด้านที่ 2'} ${p.thaiAvg}% • รวม ${p.totalAvg}%</div>`;
+
+  const radarRows = Array.isArray(data.radar) ? data.radar : [];
+  const studentValues = radarRows.map(x => Number(x.student) || 0);
+  const schoolValues = radarRows.map(x => Number(typeof x.schoolAvg !== 'undefined' ? x.schoolAvg : x.school) || 0);
+  if (studentChart) studentChart.destroy();
+  studentChart = new Chart(document.getElementById('studentRadar'), {
+    type: 'radar',
+    data: {
+      labels: radarRows.map(x => x.label),
+      datasets: [
+        {
+          label: 'นักเรียน',
+          data: studentValues,
+          fill: true,
+          backgroundColor: 'rgba(14, 165, 233, 0.20)',
+          borderColor: 'rgba(14, 165, 233, 1)',
+          pointBackgroundColor: 'rgba(14, 165, 233, 1)',
+          pointRadius: 4,
+          borderWidth: 2
+        },
+        {
+          label: 'ค่าเฉลี่ยโรงเรียน',
+          data: schoolValues,
+          fill: false,
+          backgroundColor: 'rgba(244, 63, 94, 0.10)',
+          borderColor: 'rgba(244, 63, 94, 1)',
+          pointBackgroundColor: 'rgba(244, 63, 94, 1)',
+          pointRadius: 4,
+          borderWidth: 3,
+          borderDash: [6, 4]
+        }
+      ]
+    },
+    options: radarOptions_()
+  });
+
+  document.getElementById('studentAnalysis').innerHTML = `
+    ${sectionBlock('ภาพรวมรายบุคคล', [data.recommendations.overview])}
+    ${sectionBlock('จุดเด่น', data.recommendations.strengths)}
+    ${sectionBlock('ควรพัฒนา', data.recommendations.development)}
+    ${sectionBlock('กิจกรรมเสนอแนะ', data.recommendations.activities)}
+  `;
+}
+
+function sectionBlock(title, items) {
+  const list = Array.isArray(items) ? items : [];
+  return `<div><h3 class="font-bold text-slate-900 mb-2">${title}</h3><ul class="space-y-1 text-sm text-slate-700">${list.map(x=>`<li class="flex gap-2"><span class="text-sky-500">●</span><span>${x}</span></li>`).join('')}</ul></div>`;
+}
+
+function levelBadge(level) {
+  const cls = level === 'ดีมาก' ? 'bg-emerald-100 text-emerald-700' : level === 'ดี' ? 'bg-sky-100 text-sky-700' : level === 'พอใช้' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700';
+  return `<span class="px-3 py-1 rounded-full text-xs font-bold ${cls}">${level}</span>`;
+}
+
+function radarOptions_() {
+  return {
+    responsive: true,
+    plugins: { legend: { position: 'bottom' } },
+    scales: {
+      r: { suggestedMin: 0, suggestedMax: 100, ticks: { stepSize: 20 }, pointLabels: { font: { size: 12 } } }
+    }
+  };
+}
+
+function barOptions_() {
+  return {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: {
+        callbacks: {
+          label: ctx => `${ctx.dataset.label}: ${Number(ctx.raw || 0).toFixed(2)}%`
+        }
+      }
+    },
+    scales: {
+      y: { beginAtZero: true, suggestedMax: 100, ticks: { callback: value => value + '%' } },
+      x: { ticks: { font: { size: 12 } } }
+    }
+  };
+}
+
+async function exportOverviewPdf() {
+  if (!dashboard || !dashboard.overviewTables) {
+    alert('ยังไม่มีข้อมูลสำหรับ Export PDF');
+    return;
+  }
+  showLoading('กำลังสร้าง PDF', 'ระบบกำลังจัดหน้า A4 และเตรียมดาวน์โหลดไฟล์...');
+
+  const oldArea = document.getElementById('pdfPrintArea');
+  if (oldArea) oldArea.remove();
+
+  const school = dashboard.school || {};
+  const meta = [safeGet_({school},'school.name','โรงเรียน'), school && school.code ? 'รหัส ' + school.code : '', school && school.office || '', school && school.studentText || ''].filter(Boolean).join(' • ');
+  const radarImage = getSchoolRadarImage_();
+  const area = document.createElement('div');
+  area.id = 'pdfPrintArea';
+  area.className = 'pdf-exporting';
+  area.innerHTML = buildOverviewPdfHtml(meta, dashboard.overviewTables, radarImage, dashboard.analysis, dashboard.report);
+  document.body.appendChild(area);
+
+
+  if (document.fonts && document.fonts.load) {
+    try {
+      await document.fonts.load('12pt "TH Sarabun PSK"');
+      await document.fonts.ready;
+    } catch (e) {
+      console.warn('โหลดฟอนต์ TH Sarabun PSK ไม่สำเร็จ ระบบจะใช้ฟอนต์สำรอง', e);
+    }
+  }
+
+  const filename = `${(dashboard.report && dashboard.report.shortName) || 'รายงาน'}_ภาพรวมโรงเรียน_ตารางและกราฟ_A4.pdf`;
+  const opt = {
+    margin: 0,
+    filename,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, allowTaint: false, letterRendering: true, scrollX: 0, scrollY: 0 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
+  };
+
+  html2pdf().set(opt).from(area).save().then(() => {
+    area.remove();
+    hideLoading(true);
+  }).catch(err => {
+    area.remove();
+    hideLoading(true);
+    alert(err && err.message ? err.message : err);
+  });
+}
+
+function buildOverviewPdfHtml(meta, tables, radarImage, analysis, report) {
+  const isRT = report && report.type === 'RT';
+  const titleText = (report && report.headerTitle) || 'รายงานผลการประเมิน';
+  const topHeader = isRT ? 'ผลการประเมิน' : 'รายการ';
+  const detailHeader = isRT ? 'ความสามารถ' : 'รายด้าน/สาระ/มาตรฐาน';
+  return `
+    <div class="pdf-page">
+    <div class="title">การวิเคราะห์ผลการประเมินกลุ่มสาระการเรียนรู้ / ความสามารถ / สมรรถนะ<br><span class="${isRT ? 'rt-title-line' : ''}">${escapeHtml_(titleText)}</span></div>
+    <div class="subtitle">${escapeHtml_(meta)}</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="item-col" rowspan="2">${topHeader}</th>
+          <th class="num-col" rowspan="2">คะแนน<br>เต็ม</th>
+          <th class="num-col" rowspan="2">คะแนน<br>สูงสุด</th>
+          <th class="num-col" rowspan="2">คะแนน<br>ต่ำสุด</th>
+          <th class="num-col" rowspan="2">ค่าเฉลี่ย<br>ร้อยละ</th>
+          <th class="num-col" rowspan="2">S.D.</th>
+          <th colspan="4">ร้อยละของนักเรียนตามระดับ</th>
+        </tr>
+        <tr>
+          <th class="level-col">ดีมาก</th>
+          <th class="level-col">ดี</th>
+          <th class="level-col">พอใช้</th>
+          <th class="level-col">ปรับปรุง</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(tables.topTable || []).map(r => `
+          <tr>
+            <td style="text-align:center">${formatPdfOverviewItem_(r, report)}</td>
+            <td style="text-align:center">${fmt(r.fullScore)}</td>
+            <td style="text-align:center">${fmt(r.max)}</td>
+            <td style="text-align:center">${fmt(r.min)}</td>
+            <td style="text-align:center;font-weight:700">${fmt(r.avg)}</td>
+            <td style="text-align:center">${fmt(r.sd)}</td>
+            <td style="text-align:center">${dashZero(r.veryGood)}</td>
+            <td style="text-align:center">${dashZero(r.good)}</td>
+            <td style="text-align:center">${dashZero(r.fair)}</td>
+            <td style="text-align:center">${dashZero(r.improve)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    <div class="note">นักเรียนระดับปรับปรุง จำนวน ${escapeHtml_(String((tables.improveText || '').replace(/[^0-9๐-๙]+/g, '') || '........'))} คน</div>
+    ${isRT ? '' : '<div class="detail-title">ผลจำแนกตามรายด้าน / สาระ / มาตรฐาน</div>'}
+    <table>
+      <thead>
+        <tr>
+          <th class="item-col">${detailHeader}</th>
+          <th class="num-col">คะแนน<br>เต็ม</th>
+          <th class="num-col">คะแนน<br>สูงสุด</th>
+          <th class="num-col">คะแนน<br>ต่ำสุด</th>
+          <th class="num-col">ค่าเฉลี่ย<br>ร้อยละ</th>
+          <th class="num-col">S.D.</th>
+          <th class="num-col">C.V.<br>%</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(tables.detailRows || []).map(r => `
+          <tr>
+            <td style="${isOverviewGroupRow_(r.item) ? 'font-weight:700;background:#f8fafc;' : ''}">${escapeHtml_(r.item)}</td>
+            <td style="text-align:center">${fmt(r.fullScore)}</td>
+            <td style="text-align:center">${fmt(r.max)}</td>
+            <td style="text-align:center">${fmt(r.min)}</td>
+            <td style="text-align:center;font-weight:700">${fmt(r.avg)}</td>
+            <td style="text-align:center">${fmt(r.sd)}</td>
+            <td style="text-align:center">${fmt(r.cv)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+    </div>
+    <div class="pdf-page pdf-final-section">
+      ${buildPdfRadarHtml_(radarImage)}
+      ${buildPdfAnalysisHtml_(analysis)}
+    </div>
+  `;
+}
+
+function formatPdfOverviewItem_(r, report) {
+  if (report && report.type === 'RT' && r && r.item === 'RT') {
+    return `RT<br>ปีการศึกษา ${escapeHtml_(r.academicYear || report.academicYear || '2568')}`;
+  }
+  return escapeHtml_(r && r.item ? r.item : '');
+}
+
+function getSchoolRadarImage_() {
+  try {
+    if (schoolChart && typeof schoolChart.toBase64Image === 'function') {
+      return schoolChart.toBase64Image('image/png', 1);
+    }
+    const canvas = document.getElementById('schoolRadar');
+    return canvas ? canvas.toDataURL('image/png') : '';
+  } catch (e) {
+    console.warn('ไม่สามารถแปลงกราฟใยแมงมุมเป็นรูปภาพได้', e);
+    return '';
+  }
+}
+
+function buildPdfRadarHtml_(radarImage) {
+  if (!radarImage) return '';
+  return `
+    <div class="pdf-section-title">ภาพรวมโรงเรียน: กราฟใยแมงมุม</div>
+    <div class="pdf-radar-wrap">
+      <img class="pdf-radar-img" src="${radarImage}" alt="กราฟใยแมงมุมภาพรวมโรงเรียน">
+    </div>
+  `;
+}
+
+function buildPdfAnalysisHtml_(analysis) {
+  if (!analysis) return '';
+  return `
+    <div class="pdf-section-title">การวิเคราะห์ภาพรวมโรงเรียน</div>
+    <div class="analysis-grid">
+      ${analysisBox_('ภาพรวม', [analysis.overview])}
+      ${analysisBox_('จุดเด่น', analysis.strengths)}
+      ${analysisBox_('แนวทางการพัฒนา', analysis.development)}
+      ${analysisBox_('ระบบเสนอแนะกิจกรรม', analysis.activities)}
+    </div>
+  `;
+}
+
+function analysisBox_(title, items) {
+  const safeItems = (items || []).filter(Boolean);
+  if (!safeItems.length) return '';
+  const bodyHtml = safeItems.length === 1
+    ? `<p>${escapeHtml_(safeItems[0])}</p>`
+    : `<ul>${safeItems.map(item => `<li>${escapeHtml_(item)}</li>`).join('')}</ul>`;
+  return `
+    <div class="analysis-box">
+      <h3>${escapeHtml_(title)}</h3>
+      ${bodyHtml}
+    </div>
+  `;
+}
+
+
+function escapeHtml_(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function safeGet_(obj, path, fallback) {
+  try {
+    return String(path).split('.').reduce((o, k) => (o && typeof o === 'object') ? o[k] : undefined, obj) ?? fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function showError(err) {
+  hideLoading(true);
+  const msg = err && err.message ? err.message : String(err || 'เกิดข้อผิดพลาด');
+  console.error(err);
+  if (msg.indexOf("reading 'find'") >= 0 || msg.indexOf('reading \"find\"') >= 0 || msg.indexOf("reading 'filter'") >= 0 || msg.indexOf('reading \"filter\"') >= 0) {
+    alert('ระบบอ่านโครงสร้างชีตไม่ครบถ้วน จึงปรับใช้โหมดรองรับ RT/NT หลายชีตแล้ว กรุณาอัปเดต Code.gs และ Index.html เวอร์ชันล่าสุด แล้ว Deploy เป็น New version อีกครั้ง\n\nรายละเอียด: ' + msg);
+    return;
+  }
+  alert(msg);
+}
+
+window.onload = init;
+</script>
+</body>
+</html>

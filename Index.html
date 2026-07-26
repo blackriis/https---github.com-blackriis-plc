@@ -14,7 +14,14 @@
     @font-face {
       font-family: 'TH Sarabun PSK';
       src: url('https://raw.githubusercontent.com/SarabunConsortium/TH-Sarabun-PSK/master/THSarabunPSK%20Regular.ttf') format('truetype');
-      font-weight: 400 700;
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'TH Sarabun PSK';
+      src: url('https://raw.githubusercontent.com/SarabunConsortium/TH-Sarabun-PSK/master/THSarabunPSK%20Bold.ttf') format('truetype');
+      font-weight: 700;
       font-style: normal;
       font-display: swap;
     }
@@ -24,7 +31,7 @@
 
     .pdf-exporting { width: 210mm; background: #fff; color: #111827; padding: 0; box-sizing: border-box; font-family: 'TH Sarabun PSK', sans-serif; font-kerning: normal; text-rendering: optimizeLegibility; }
     .pdf-exporting * { letter-spacing: normal; }
-    .pdf-exporting .pdf-page { width: 210mm; min-height: 297mm; padding: 10mm; box-sizing: border-box; background: #fff; }
+    .pdf-exporting .pdf-page { width: 210mm; min-height: 297mm; padding: 10mm 10mm 10mm 25mm; box-sizing: border-box; background: #fff; }
     .pdf-exporting table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12.2pt; }
     .pdf-exporting th, .pdf-exporting td { border: 1px solid #334155; padding: 2.2px 3.2px; line-height: 1.08; vertical-align: middle; }
     .pdf-exporting th { background: #f1f5f9; font-weight: 700; text-align: center; }
@@ -50,7 +57,7 @@
     .pdf-exporting .pdf-analysis ul { margin: 0; padding-left: 6mm; line-height: 1.05; }
     .pdf-exporting .pdf-analysis li { margin: 0; line-height: 1.05; }
     .pdf-exporting .page-break { page-break-before: auto; break-before: auto; }
-    .pdf-exporting .pdf-final-section { min-height: 297mm; }
+    .pdf-exporting .pdf-final-section { margin-top: 4mm; padding: 0 10mm 0 25mm; box-sizing: border-box; }
     .pdf-exporting .pdf-final-section .pdf-section-title:first-child { margin-top: 0; }
 
     .loading-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.42); backdrop-filter: blur(8px); }
@@ -1214,7 +1221,7 @@ function buildOverviewPdfHtml(meta, tables, radarImage, analysis, report) {
   const topHeader = isRT ? 'ผลการประเมิน' : 'รายการ';
   const detailHeader = isRT ? 'ความสามารถ' : 'รายด้าน/สาระ/มาตรฐาน';
   const finalContentHtml = `${buildPdfRadarHtml_(radarImage)}${buildPdfAnalysisHtml_(analysis)}`;
-  const finalPageHtml = finalContentHtml ? `<div class="pdf-page pdf-final-section">${finalContentHtml}</div>` : '';
+  const finalPageHtml = finalContentHtml ? `<div class="pdf-final-section">${finalContentHtml}</div>` : '';
   return `
     <div class="pdf-page">
     <div class="title">การวิเคราะห์ผลการประเมินกลุ่มสาระการเรียนรู้ / ความสามารถ / สมรรถนะ<br><span class="${isRT ? 'rt-title-line' : ''}">${escapeHtml_(titleText)}</span></div>

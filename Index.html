@@ -22,7 +22,8 @@
     .glass { background: rgba(255,255,255,.82); backdrop-filter: blur(14px); }
     .card { border: 1px solid rgba(148,163,184,.25); box-shadow: 0 18px 45px rgba(15,23,42,.08); }
 
-    .pdf-exporting { width: 210mm; background: #fff; color: #111827; padding: 0; box-sizing: border-box; font-family: 'TH Sarabun PSK', 'Sarabun', 'TH Sarabun New', sans-serif; }
+    .pdf-exporting { width: 210mm; background: #fff; color: #111827; padding: 0; box-sizing: border-box; font-family: 'TH Sarabun PSK', sans-serif; font-kerning: normal; text-rendering: optimizeLegibility; }
+    .pdf-exporting * { letter-spacing: normal; }
     .pdf-exporting .pdf-page { width: 210mm; min-height: 297mm; padding: 10mm; box-sizing: border-box; background: #fff; }
     .pdf-exporting table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12.2pt; }
     .pdf-exporting th, .pdf-exporting td { border: 1px solid #334155; padding: 2.2px 3.2px; line-height: 1.08; vertical-align: middle; }
@@ -41,14 +42,15 @@
     .pdf-exporting .pdf-section-title { font-size: 14pt; font-weight: 700; margin: 7mm 0 2mm; color: #0f172a; }
     .pdf-exporting .pdf-radar-wrap { display: flex; justify-content: center; align-items: center; margin: 2mm 0 4mm; }
     .pdf-exporting .pdf-radar-img { width: 126mm; max-height: 92mm; object-fit: contain; }
-    .pdf-exporting .analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin-bottom: 4mm; align-items: start; }
-    .pdf-exporting .analysis-box { border: 1px solid #cbd5e1; border-radius: 3mm; padding: 3mm; background: #f8fafc; page-break-inside: avoid; overflow: visible; }
-    .pdf-exporting .analysis-box h3 { font-size: 14pt; font-weight: 700; margin: 0 0 2mm; line-height: 1.35; }
-    .pdf-exporting .analysis-box ul { margin: 0; padding-left: 5mm; font-size: 13pt; line-height: 1.65; }
-    .pdf-exporting .analysis-box li { margin: 0 0 1.6mm 0; line-height: 1.65; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
-    .pdf-exporting .analysis-box p { margin: 0; font-size: 13pt; line-height: 1.65; white-space: normal; word-break: normal; overflow-wrap: anywhere; }
+    .pdf-exporting .pdf-final-section .pdf-section-title { font-size: 16pt; font-weight: 700; line-height: 1.05; margin: 2mm 0 1mm; }
+    .pdf-exporting .pdf-analysis { font-size: 16pt; line-height: 1.05; color: #111827; }
+    .pdf-exporting .pdf-analysis-section { margin: 0 0 1mm; page-break-inside: avoid; break-inside: avoid; }
+    .pdf-exporting .pdf-analysis h3 { font-size: 16pt; font-weight: 700; margin: 0; line-height: 1.05; }
+    .pdf-exporting .pdf-analysis p { margin: 0; line-height: 1.05; }
+    .pdf-exporting .pdf-analysis ul { margin: 0; padding-left: 6mm; line-height: 1.05; }
+    .pdf-exporting .pdf-analysis li { margin: 0; line-height: 1.05; }
     .pdf-exporting .page-break { page-break-before: auto; break-before: auto; }
-    .pdf-exporting .pdf-final-section { min-height: 277mm; }
+    .pdf-exporting .pdf-final-section { min-height: 297mm; }
     .pdf-exporting .pdf-final-section .pdf-section-title:first-child { margin-top: 0; }
 
     .loading-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.42); backdrop-filter: blur(8px); }
@@ -1179,9 +1181,10 @@ async function exportOverviewPdf() {
   if (document.fonts && document.fonts.load) {
     try {
       await document.fonts.load('12pt "TH Sarabun PSK"');
+      await document.fonts.load('700 14pt "TH Sarabun PSK"');
       await document.fonts.ready;
     } catch (e) {
-      console.warn('โหลดฟอนต์ TH Sarabun PSK ไม่สำเร็จ ระบบจะใช้ฟอนต์สำรอง', e);
+      console.warn('โหลดฟอนต์ PDF ไม่สำเร็จ ระบบจะใช้ฟอนต์สำรอง', e);
     }
   }
 
@@ -1190,7 +1193,7 @@ async function exportOverviewPdf() {
     margin: 0,
     filename,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, allowTaint: false, letterRendering: true, scrollX: 0, scrollY: 0 },
+    html2canvas: { scale: 2, useCORS: true, allowTaint: false, letterRendering: false, scrollX: 0, scrollY: 0 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
   };
@@ -1210,6 +1213,8 @@ function buildOverviewPdfHtml(meta, tables, radarImage, analysis, report) {
   const titleText = (report && report.headerTitle) || 'รายงานผลการประเมิน';
   const topHeader = isRT ? 'ผลการประเมิน' : 'รายการ';
   const detailHeader = isRT ? 'ความสามารถ' : 'รายด้าน/สาระ/มาตรฐาน';
+  const finalContentHtml = `${buildPdfRadarHtml_(radarImage)}${buildPdfAnalysisHtml_(analysis)}`;
+  const finalPageHtml = finalContentHtml ? `<div class="pdf-page pdf-final-section">${finalContentHtml}</div>` : '';
   return `
     <div class="pdf-page">
     <div class="title">การวิเคราะห์ผลการประเมินกลุ่มสาระการเรียนรู้ / ความสามารถ / สมรรถนะ<br><span class="${isRT ? 'rt-title-line' : ''}">${escapeHtml_(titleText)}</span></div>
@@ -1276,10 +1281,7 @@ function buildOverviewPdfHtml(meta, tables, radarImage, analysis, report) {
       </tbody>
     </table>
     </div>
-    <div class="pdf-page pdf-final-section">
-      ${buildPdfRadarHtml_(radarImage)}
-      ${buildPdfAnalysisHtml_(analysis)}
-    </div>
+    ${finalPageHtml}
   `;
 }
 
@@ -1315,31 +1317,32 @@ function buildPdfRadarHtml_(radarImage) {
 
 function buildPdfAnalysisHtml_(analysis) {
   if (!analysis) return '';
+  const sections = [
+    pdfAnalysisSection_('ภาพรวม', [analysis.overview]),
+    pdfAnalysisSection_('จุดเด่น', analysis.strengths),
+    pdfAnalysisSection_('แนวทางการพัฒนา', analysis.development),
+    pdfAnalysisSection_('ระบบเสนอแนะกิจกรรม', analysis.activities)
+  ].filter(Boolean).join('');
+  if (!sections) return '';
   return `
     <div class="pdf-section-title">การวิเคราะห์ภาพรวมโรงเรียน</div>
-    <div class="analysis-grid">
-      ${analysisBox_('ภาพรวม', [analysis.overview])}
-      ${analysisBox_('จุดเด่น', analysis.strengths)}
-      ${analysisBox_('แนวทางการพัฒนา', analysis.development)}
-      ${analysisBox_('ระบบเสนอแนะกิจกรรม', analysis.activities)}
-    </div>
+    <div class="pdf-analysis">${sections}</div>
   `;
 }
 
-function analysisBox_(title, items) {
+function pdfAnalysisSection_(title, items) {
   const safeItems = (items || []).filter(Boolean);
   if (!safeItems.length) return '';
   const bodyHtml = safeItems.length === 1
     ? `<p>${escapeHtml_(safeItems[0])}</p>`
     : `<ul>${safeItems.map(item => `<li>${escapeHtml_(item)}</li>`).join('')}</ul>`;
   return `
-    <div class="analysis-box">
+    <div class="pdf-analysis-section">
       <h3>${escapeHtml_(title)}</h3>
       ${bodyHtml}
     </div>
   `;
 }
-
 
 function escapeHtml_(value) {
   return String(value ?? '')

@@ -324,8 +324,8 @@ function processSheet_(sheet, values, sheetIndex) {
     const firstStrands = getStrandMetrics_(s.subjects && s.subjects.first ? s.subjects.first.metrics : [], report.firstLabel, report.type, report.firstQualityType);
     const secondStrands = getStrandMetrics_(s.subjects && s.subjects.second ? s.subjects.second.metrics : [], report.secondLabel, report.type, report.secondQualityType);
     s.strands = firstStrands.concat(secondStrands);
-    s.mathAvg = round2_(report.type === 'RT' ? rtSubjectPercent_(s.subjects.first, 'first') : subjectAverage_(s.subjects.first));
-    s.thaiAvg = round2_(report.type === 'RT' ? rtSubjectPercent_(s.subjects.second, 'second') : subjectAverage_(s.subjects.second));
+    s.mathAvg = round2_(report.type === 'RT' ? rtSubjectPercent_(s.subjects.first, 'first') : subjectAverage_(s.subjects.first, report, report.firstLabel));
+    s.thaiAvg = round2_(report.type === 'RT' ? rtSubjectPercent_(s.subjects.second, 'second') : subjectAverage_(s.subjects.second, report, report.secondLabel));
     const totalFromReport = s.totals ? totalAverageFromRow_(s.totals) : NaN;
     s.totalAvg = !isNaN(totalFromReport) ? round2_(totalFromReport) : round2_(average_([s.mathAvg, s.thaiAvg].filter(x => !isNaN(x))));
     s.quality = qualityLevel_(s.totalAvg, report.totalQualityType);
@@ -815,11 +815,26 @@ function buildRtStrandAverages_(students, report) {
   });
 }
 
-function subjectAverage_(row) {
+function subjectAverage_(row, report, subjectLabel) {
   const metrics = row && Array.isArray(row.metrics) ? row.metrics : [];
   if (!metrics.length) return 0;
   const totalMetric = safeFind_(metrics, m => m && /^รวม/.test(m.label));
   if (totalMetric) return totalMetric.percent;
+  // NT บางไฟล์ไม่มีแถวรวม จึงต้องถ่วงน้ำหนักตามคะแนนเต็มใหม่
+  // เพื่อไม่ให้สาระ/มาตรฐานที่คะแนนเต็มน้อยมีน้ำหนักเท่ากับส่วนอื่น
+  if (report && report.type === 'NT') {
+    const candidates = metrics.map(m => ({
+      label: String(m && m.label || ''),
+      percent: Number(m && m.percent),
+      kind: ntMetricKind_(m && m.label),
+      fullScore: ntOverviewFullScore_(subjectLabel, m && m.label)
+    })).filter(m => !isNaN(m.percent) && m.kind);
+    // หากมีมาตรฐาน ให้ใช้เฉพาะมาตรฐาน เพราะคะแนนสาระเป็นผลรวมของมาตรฐานอยู่แล้ว
+    const useStandards = candidates.some(m => m.kind === 'standard');
+    const scoredMetrics = candidates.filter(m => m.kind === (useStandards ? 'standard' : 'strand'));
+    const fullScore = scoredMetrics.reduce((sum, m) => sum + m.fullScore, 0);
+    if (fullScore) return scoredMetrics.reduce((sum, m) => sum + m.percent * m.fullScore / 100, 0) * 100 / fullScore;
+  }
   return average_(metrics.map(m => m.percent));
 }
 
@@ -864,6 +879,40 @@ const RT_OVERVIEW_FULL_SCORES_ = {
   secondText: 20
 };
 
+// คะแนนเต็ม NT ป.3 ตามโครงสร้างข้อสอบใหม่ ใช้ร่วมกันในตารางสรุปและการคำนวณเมื่อชีตไม่มีแถวรวม
+const NT_OVERVIEW_FULL_SCORES_ = {
+  math: {
+    strands: { 1: 37, 2: 54, 3: 9 },
+    standards: { '1.1': 31, '1.2': 6, '2.1': 51, '2.2': 3, '3.1': 9 }
+  },
+  thai: {
+    strands: { 1: 36, 2: 15, 3: 9, 4: 26, 5: 14 },
+    standards: { '1.1': 36, '2.1': 15, '3.1': 9, '4.1': 26, '5.1': 14 }
+  }
+};
+
+function ntOverviewFullScore_(subject, label) {
+  const subjectText = String(subject || '');
+  const labelText = String(label || '').replace(/\s+/g, ' ').trim();
+  const isMath = /คณิตศาสตร์/.test(subjectText) || /มาตรฐาน\s*ค\s*/.test(labelText);
+  const scores = isMath ? NT_OVERVIEW_FULL_SCORES_.math : NT_OVERVIEW_FULL_SCORES_.thai;
+  if (!labelText) return 100;
+
+  const standardMatch = labelText.match(/[คท]\s*(\d+)\s*\.\s*(\d+)/);
+  if (standardMatch) return scores.standards[standardMatch[1] + '.' + standardMatch[2]] || 100;
+
+  const strandMatch = labelText.match(/สาระที่\s*(\d+)/);
+  if (strandMatch) return scores.strands[Number(strandMatch[1])] || 100;
+  return 100;
+}
+
+function ntMetricKind_(label) {
+  const text = String(label || '');
+  if (/[คท]\s*\d+\s*\.\s*\d+/.test(text)) return 'standard';
+  if (/สาระที่\s*\d+/.test(text)) return 'strand';
+  return '';
+}
+
 function overviewScoreFromPercent_(percent, fullScore) {
   const value = Number(percent);
   if (isNaN(value)) return NaN;
@@ -891,9 +940,11 @@ function rtOverviewFullScore_(subject, label) {
   return RT_OVERVIEW_FULL_SCORES_.total;
 }
 
-function overviewFullScore_(report, rtSubject, rtLabel) {
-  if (!report || report.type !== 'RT') return 100;
-  return rtOverviewFullScore_(rtSubject, rtLabel);
+function overviewFullScore_(report, subject, label) {
+  if (!report) return 100;
+  if (report.type === 'RT') return rtOverviewFullScore_(subject, label);
+  if (report.type === 'NT') return ntOverviewFullScore_(subject, label);
+  return 100;
 }
 
 function buildOverviewTables_(data) {
@@ -955,17 +1006,17 @@ function buildOverviewTables_(data) {
     });
 
   } else {
-    addValues('subject_first', report.firstLabel, students.map(s => s.mathAvg));
+    addValues('subject_first', report.firstLabel, students.map(s => s.mathAvg), null, overviewFullScore_(report, report.firstLabel));
     safeArray_(students).forEach(st => {
       safeArray_(st.detailRows).filter(r => r && r.subject === report.firstLabel && detailRowForOverview_(r.label, report.type, r.subject)).forEach(r => {
-        addValues('first_' + r.label, r.label, [r.percent]);
+        addValues('first_' + r.label, r.label, [r.percent], null, overviewFullScore_(report, r.subject, r.label));
       });
     });
 
-    addValues('subject_second', report.secondLabel, students.map(s => s.thaiAvg));
+    addValues('subject_second', report.secondLabel, students.map(s => s.thaiAvg), null, overviewFullScore_(report, report.secondLabel));
     safeArray_(students).forEach(st => {
       safeArray_(st.detailRows).filter(r => r && r.subject === report.secondLabel && detailRowForOverview_(r.label, report.type, r.subject)).forEach(r => {
-        addValues('second_' + r.label, r.label, [r.percent]);
+        addValues('second_' + r.label, r.label, [r.percent], null, overviewFullScore_(report, r.subject, r.label));
       });
     });
   }

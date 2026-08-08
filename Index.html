@@ -159,7 +159,7 @@
         </div>
       </div>
 
-      <div class="overflow-x-auto mb-6">
+      <div id="overviewTopTableWrap" class="overflow-x-auto mb-6">
         <table class="w-full text-sm border border-slate-300 bg-white">
           <thead>
             <tr class="bg-slate-100">
@@ -570,6 +570,8 @@ function onetSubjectText_(r) {
 
 function renderOverviewTables(tables) {
   if (!tables) return;
+  const isOnet = dashboard && dashboard.report && dashboard.report.type === 'ONET';
+  document.getElementById('overviewTopTableWrap').classList.toggle('hidden', isOnet);
   document.getElementById('improveText').textContent = [tables.improveText, tables.statisticsText].filter(Boolean).join(' • ');
   document.getElementById('overviewTopTable').innerHTML = (tables.topTable || []).map(r => `
     <tr>
@@ -1253,15 +1255,13 @@ async function exportOverviewPdf() {
 
 function buildOverviewPdfHtml(meta, tables, radarImage, analysis, report) {
   const isRT = report && report.type === 'RT';
+  const isOnet = report && report.type === 'ONET';
   const titleText = (report && report.headerTitle) || 'รายงานผลการประเมิน';
   const topHeader = isRT ? 'ผลการประเมิน' : 'รายการ';
   const detailHeader = isRT ? 'ความสามารถ' : 'รายด้าน/สาระ/มาตรฐาน';
   const finalContentHtml = `${buildPdfRadarHtml_(radarImage)}${buildPdfAnalysisHtml_(analysis)}`;
   const finalPageHtml = finalContentHtml ? `<div class="pdf-final-section">${finalContentHtml}</div>` : '';
-  return `
-    <div class="pdf-page">
-    <div class="title">การวิเคราะห์ผลการประเมินกลุ่มสาระการเรียนรู้ / ความสามารถ / สมรรถนะ<br><span class="${isRT ? 'rt-title-line' : ''}">${escapeHtml_(titleText)}</span></div>
-    <div class="subtitle">${escapeHtml_(meta)}</div>
+  const topTableHtml = isOnet ? '' : `
     <table>
       <thead>
         <tr>
@@ -1296,7 +1296,12 @@ function buildOverviewPdfHtml(meta, tables, radarImage, analysis, report) {
           </tr>`).join('')}
       </tbody>
     </table>
-    <div class="note">นักเรียนระดับปรับปรุง จำนวน ${escapeHtml_(String((tables.improveText || '').replace(/[^0-9๐-๙]+/g, '') || '........'))} คน</div>
+    <div class="note">นักเรียนระดับปรับปรุง จำนวน ${escapeHtml_(String((tables.improveText || '').replace(/[^0-9๐-๙]+/g, '') || '........'))} คน</div>`;
+  return `
+    <div class="pdf-page">
+    <div class="title">การวิเคราะห์ผลการประเมินกลุ่มสาระการเรียนรู้ / ความสามารถ / สมรรถนะ<br><span class="${isRT ? 'rt-title-line' : ''}">${escapeHtml_(titleText)}</span></div>
+    <div class="subtitle">${escapeHtml_(meta)}</div>
+    ${topTableHtml}
     ${isRT ? '' : '<div class="detail-title">ผลจำแนกตามรายด้าน / สาระ / มาตรฐาน</div>'}
     <table>
       <thead>

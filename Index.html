@@ -961,6 +961,22 @@ function buildStudentRadarRowsClient(student, allStudents, report) {
     });
   });
 
+  if (report && report.type === 'RT') {
+    return rtRadarAxesJS(report).map(axis => {
+      const studentRow = studentStrands.find(x => x && x.subject === axis.subject && x.label === axis.label);
+      const key = radarKeyJS(axis.subject, axis.label);
+      const schoolAvg = map[key] && map[key].values.length ? averageJS(map[key].values) : NaN;
+      return {
+        label: axis.label,
+        fullLabel: axis.label,
+        subject: axis.subject,
+        student: studentRow ? round2JS(Number(studentRow.percent) || 0) : 0,
+        school: !isNaN(schoolAvg) ? round2JS(schoolAvg) : 0,
+        schoolAvg: !isNaN(schoolAvg) ? round2JS(schoolAvg) : 0
+      };
+    });
+  }
+
   studentStrands.forEach(x => {
     const key = radarKeyJS(x.subject, x.label);
     const schoolAvg = map[key] && map[key].values.length ? averageJS(map[key].values) : NaN;
@@ -982,6 +998,18 @@ function buildStudentRadarRowsClient(student, allStudents, report) {
   }
 
   return rows;
+}
+
+function rtRadarAxesJS(report) {
+  const first = report && report.firstLabel || 'การอ่านออกเสียง';
+  const second = report && report.secondLabel || 'การอ่านรู้เรื่อง';
+  return [
+    { subject: first, label: 'อ่านเป็นคำ' },
+    { subject: first, label: 'อ่านเป็นข้อความ' },
+    { subject: second, label: 'การอ่านคำ' },
+    { subject: second, label: 'การอ่านประโยค' },
+    { subject: second, label: 'การอ่านข้อความ' }
+  ];
 }
 
 function radarKeyJS(subject, label) {
@@ -1006,8 +1034,16 @@ function shortenLabelJS(subject, label, report) {
   }
 
   if (report && report.type === 'RT') {
-    const prefix = cleanSubject === report.firstLabel ? 'ออกเสียง ' : 'รู้เรื่อง ';
-    return prefix + cleanLabel.replace('การ', '');
+    if (cleanSubject === report.firstLabel) {
+      if (/คำ/.test(cleanLabel)) return 'อ่านเป็นคำ';
+      if (/ข้อความ/.test(cleanLabel)) return 'อ่านเป็นข้อความ';
+    }
+    if (cleanSubject === report.secondLabel) {
+      if (/ประโยค/.test(cleanLabel)) return 'การอ่านประโยค';
+      if (/คำ/.test(cleanLabel)) return 'การอ่านคำ';
+      if (/ข้อความ/.test(cleanLabel)) return 'การอ่านข้อความ';
+    }
+    return cleanLabel || cleanSubject || '-';
   }
 
   return (cleanSubject === 'ด้านคณิตศาสตร์' ? 'คณิต ' : 'ไทย ') + cleanLabel.replace('สาระที่ ', 'ส');
@@ -1032,11 +1068,11 @@ function buildActivitySuggestionsJS(items, report) {
   items.forEach(x => {
     const text = `${x.subject} ${x.label}`;
     if (report && report.type === 'RT') {
-      if (/อ่านออกเสียง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('การอ่านคำ: ฝึกอ่านคำพื้นฐานวันละ 10 นาที ใช้บัตรคำ เกมจับคู่คำกับภาพ และอ่านซ้ำเพื่อเพิ่มความคล่องแคล่ว');
-      else if (/อ่านออกเสียง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('การอ่านข้อความ: ฝึกอ่านประโยคและข้อความสั้นแบบเป็นจังหวะ ครูอ่านนำ นักเรียนอ่านตาม แล้วจับเวลาอ่านอย่างเหมาะสม');
-      else if (/อ่านรู้เรื่อง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านคำ: ฝึกจับคู่คำกับความหมาย เลือกภาพแทนคำ และใช้คำแต่งประโยคสั้น ๆ');
-      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ประโยค/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านประโยค: ให้นักเรียนอ่านประโยคแล้วตอบคำถามสั้น ๆ เลือกภาพที่ตรงกับประโยค และเรียงลำดับเหตุการณ์');
-      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านข้อความ: ใช้กิจกรรมอ่านนิทานสั้น ตอบคำถาม 5W1H และขีดเส้นใต้หลักฐานจากเรื่อง');
+      if (/อ่านออกเสียง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('อ่านเป็นคำ: ฝึกอ่านคำพื้นฐานวันละ 10 นาที ใช้บัตรคำ เกมจับคู่คำกับภาพ และอ่านซ้ำเพื่อเพิ่มความคล่องแคล่ว');
+      else if (/อ่านออกเสียง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('อ่านเป็นข้อความ: ฝึกอ่านประโยคและข้อความสั้นแบบเป็นจังหวะ ครูอ่านนำ นักเรียนอ่านตาม แล้วจับเวลาอ่านอย่างเหมาะสม');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('การอ่านคำ: ฝึกจับคู่คำกับความหมาย เลือกภาพแทนคำ และใช้คำแต่งประโยคสั้น ๆ');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ประโยค/.test(x.label)) output.push('การอ่านประโยค: ให้นักเรียนอ่านประโยคแล้วตอบคำถามสั้น ๆ เลือกภาพที่ตรงกับประโยค และเรียงลำดับเหตุการณ์');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('การอ่านข้อความ: ใช้กิจกรรมอ่านนิทานสั้น ตอบคำถาม 5W1H และขีดเส้นใต้หลักฐานจากเรื่อง');
       else output.push(`${text}: จัดแบบฝึกอ่านรายกลุ่มและติดตามผลด้วยแบบทดสอบสั้นหลังเรียน`);
       return;
     }

@@ -154,6 +154,23 @@ function buildStudentRadarRows_(student, allStudents, report) {
     });
   });
 
+  // RT ใช้แกนตายตัว 5 ด้านตามเกณฑ์ใหม่ แม้ชีตต้นทางจะขาดข้อมูลบางองค์ประกอบ
+  if (report && report.type === 'RT') {
+    return rtRadarAxes_(report).map(axis => {
+      const studentRow = safeFind_(studentStrands, x => x && x.subject === axis.subject && x.label === axis.label);
+      const key = radarKey_(axis.subject, axis.label);
+      const schoolAvg = map[key] && map[key].values.length ? average_(map[key].values) : NaN;
+      return {
+        label: axis.label,
+        fullLabel: axis.label,
+        subject: axis.subject,
+        student: studentRow ? round2_(Number(studentRow.percent) || 0) : 0,
+        school: !isNaN(schoolAvg) ? round2_(schoolAvg) : 0,
+        schoolAvg: !isNaN(schoolAvg) ? round2_(schoolAvg) : 0
+      };
+    });
+  }
+
   studentStrands.forEach(x => {
     const key = radarKey_(x.subject, x.label);
     const schoolAvg = map[key] && map[key].values.length ? average_(map[key].values) : NaN;
@@ -307,8 +324,8 @@ function processSheet_(sheet, values, sheetIndex) {
     const firstStrands = getStrandMetrics_(s.subjects && s.subjects.first ? s.subjects.first.metrics : [], report.firstLabel, report.type, report.firstQualityType);
     const secondStrands = getStrandMetrics_(s.subjects && s.subjects.second ? s.subjects.second.metrics : [], report.secondLabel, report.type, report.secondQualityType);
     s.strands = firstStrands.concat(secondStrands);
-    s.mathAvg = round2_(subjectAverage_(s.subjects.first));
-    s.thaiAvg = round2_(subjectAverage_(s.subjects.second));
+    s.mathAvg = round2_(report.type === 'RT' ? rtSubjectPercent_(s.subjects.first, 'first') : subjectAverage_(s.subjects.first));
+    s.thaiAvg = round2_(report.type === 'RT' ? rtSubjectPercent_(s.subjects.second, 'second') : subjectAverage_(s.subjects.second));
     const totalFromReport = s.totals ? totalAverageFromRow_(s.totals) : NaN;
     s.totalAvg = !isNaN(totalFromReport) ? round2_(totalFromReport) : round2_(average_([s.mathAvg, s.thaiAvg].filter(x => !isNaN(x))));
     s.quality = qualityLevel_(s.totalAvg, report.totalQualityType);
@@ -318,20 +335,9 @@ function processSheet_(sheet, values, sheetIndex) {
   const statisticsStudents = splitStatisticsStudents_(allStudents);
   const students = statisticsStudents.included;
 
-  const strandAverages = [];
-  const allKeys = {};
-  students.forEach(st => st.strands.forEach(x => {
-    const key = x.subject + '|' + x.label;
-    if (!allKeys[key]) allKeys[key] = { subject: x.subject, label: x.label, values: [], shortLabel: shortenLabel_(x.subject, x.label, report) };
-    allKeys[key].values.push(x.percent);
-  }));
-  Object.values(allKeys).forEach(x => strandAverages.push({
-    subject: x.subject,
-    label: x.label,
-    shortLabel: x.shortLabel,
-    avg: round2_(average_(x.values)),
-    level: qualityLevel_(average_(x.values), x.subject === report.firstLabel ? report.firstQualityType : report.secondQualityType)
-  }));
+  const strandAverages = report.type === 'RT'
+    ? buildRtStrandAverages_(students, report)
+    : buildStrandAverages_(students, report);
 
   const summary = buildStatisticsSummary_(students, statisticsStudents.excluded);
 
@@ -741,13 +747,72 @@ function extractSchoolInfo_(values) {
 
 function getStrandMetrics_(metrics, subjectName, reportType, qualityType) {
   if (reportType === 'RT') {
-    return metrics
-      .filter(m => m.label && !/^รวม/.test(m.label))
-      .map(m => ({ subject: subjectName, label: m.label, percent: m.percent, level: qualityLevel_(m.percent, qualityType) }));
+    const seen = {};
+    return safeArray_(metrics).reduce((rows, m) => {
+      if (!m || !m.label || /^รวม/.test(m.label)) return rows;
+      const axis = rtRadarAxisFromMetric_(subjectName, m.label);
+      if (!axis || seen[axis.key]) return rows;
+      seen[axis.key] = true;
+      rows.push({ subject: subjectName, label: axis.label, percent: m.percent, level: qualityLevel_(m.percent, qualityType) });
+      return rows;
+    }, []);
   }
   return metrics
     .filter(m => /^สาระที่/.test(m.label))
     .map(m => ({ subject: subjectName, label: m.label, percent: m.percent, level: qualityLevel_(m.percent, qualityType) }));
+}
+
+function rtRadarAxisFromMetric_(subject, label) {
+  const text = String(label || '').replace(/\s+/g, ' ').trim();
+  if (/อ่านออกเสียง/.test(subject || '')) {
+    if (/คำ/.test(text)) return { key: 'first_word', label: 'อ่านเป็นคำ' };
+    if (/ข้อความ/.test(text)) return { key: 'first_text', label: 'อ่านเป็นข้อความ' };
+  }
+  if (/อ่านรู้เรื่อง/.test(subject || '')) {
+    if (/ประโยค/.test(text)) return { key: 'second_sentence', label: 'การอ่านประโยค' };
+    if (/คำ/.test(text)) return { key: 'second_word', label: 'การอ่านคำ' };
+    if (/ข้อความ/.test(text)) return { key: 'second_text', label: 'การอ่านข้อความ' };
+  }
+  return null;
+}
+
+function rtRadarAxes_(report) {
+  const first = report && report.firstLabel || 'การอ่านออกเสียง';
+  const second = report && report.secondLabel || 'การอ่านรู้เรื่อง';
+  return [
+    { key: 'first_word', subject: first, label: 'อ่านเป็นคำ', qualityType: 'rt_read_aloud' },
+    { key: 'first_text', subject: first, label: 'อ่านเป็นข้อความ', qualityType: 'rt_read_aloud' },
+    { key: 'second_word', subject: second, label: 'การอ่านคำ', qualityType: 'rt_reading' },
+    { key: 'second_sentence', subject: second, label: 'การอ่านประโยค', qualityType: 'rt_reading' },
+    { key: 'second_text', subject: second, label: 'การอ่านข้อความ', qualityType: 'rt_reading' }
+  ];
+}
+
+function buildStrandAverages_(students, report) {
+  const allKeys = {};
+  safeArray_(students).forEach(st => safeArray_(st.strands).forEach(x => {
+    const key = x.subject + '|' + x.label;
+    if (!allKeys[key]) allKeys[key] = { subject: x.subject, label: x.label, values: [], shortLabel: shortenLabel_(x.subject, x.label, report) };
+    allKeys[key].values.push(x.percent);
+  }));
+  return Object.values(allKeys).map(x => ({
+    subject: x.subject,
+    label: x.label,
+    shortLabel: x.shortLabel,
+    avg: round2_(average_(x.values)),
+    level: qualityLevel_(average_(x.values), x.subject === report.firstLabel ? report.firstQualityType : report.secondQualityType)
+  }));
+}
+
+function buildRtStrandAverages_(students, report) {
+  return rtRadarAxes_(report).map(axis => {
+    const values = safeArray_(students).map(st => {
+      const row = safeFind_(st && st.strands, x => x && x.subject === axis.subject && x.label === axis.label);
+      return row ? Number(row.percent) : NaN;
+    }).filter(x => !isNaN(x));
+    const avg = values.length ? round2_(average_(values)) : 0;
+    return { subject: axis.subject, label: axis.label, shortLabel: axis.label, avg: avg, level: qualityLevel_(avg, axis.qualityType) };
+  });
 }
 
 function subjectAverage_(row) {
@@ -758,6 +823,26 @@ function subjectAverage_(row) {
   return average_(metrics.map(m => m.percent));
 }
 
+// การอ่านรู้เรื่องมีคะแนนดิบ 40 คะแนน (10+10+20) แต่เมื่อนำ 3 องค์ประกอบมารวม
+// ระบบแปลงผลเป็นร้อยละก่อน เพื่อแสดงผลด้านการอ่านรู้เรื่องจากคะแนนเต็ม 50 คะแนนได้ถูกต้อง
+function rtSubjectPercent_(row, subjectKey) {
+  const metrics = row && Array.isArray(row.metrics) ? row.metrics : [];
+  const totalMetric = safeFind_(metrics, m => m && /^รวม/.test(m.label));
+  if (totalMetric && !isNaN(Number(totalMetric.percent))) return Number(totalMetric.percent);
+
+  const rawFullScore = subjectKey === 'second' ? RT_OVERVIEW_FULL_SCORES_.secondRaw : RT_OVERVIEW_FULL_SCORES_.first;
+  let weightedScore = 0;
+  let includedFullScore = 0;
+  metrics.forEach(m => {
+    const axis = rtRadarAxisFromMetric_(subjectKey === 'first' ? 'การอ่านออกเสียง' : 'การอ่านรู้เรื่อง', m && m.label);
+    if (!axis || isNaN(Number(m.percent))) return;
+    const fullScore = rtOverviewFullScore_(subjectKey, m.label);
+    weightedScore += Number(m.percent) * fullScore / 100;
+    includedFullScore += fullScore;
+  });
+  return includedFullScore ? weightedScore * 100 / includedFullScore : (rawFullScore ? 0 : NaN);
+}
+
 function totalAverageFromRow_(row) {
   const metrics = row && Array.isArray(row.metrics) ? row.metrics : [];
   if (!metrics.length) return NaN;
@@ -765,27 +850,62 @@ function totalAverageFromRow_(row) {
   return totalMetric ? totalMetric.percent : average_(metrics.map(m => m.percent));
 }
 
-// ตารางสรุป RT ต้องแสดงคะแนนจริงจากคะแนนเต็ม 50 คะแนน
-// ส่วนกราฟและระดับคุณภาพยังใช้ร้อยละ เพื่อให้เกณฑ์คุณภาพเดิมไม่เปลี่ยน
-function overviewScoreFromPercent_(percent, report) {
+// ตารางสรุป RT แสดงคะแนนจริงตามคะแนนเต็มของแต่ละด้าน/องค์ประกอบ
+// กราฟและระดับคุณภาพยังใช้ร้อยละ เพื่อให้เกณฑ์คุณภาพเดิมไม่เปลี่ยน
+const RT_OVERVIEW_FULL_SCORES_ = {
+  total: 100,
+  first: 50,
+  second: 50,
+  secondRaw: 40,
+  firstWord: 20,
+  firstText: 30,
+  secondWord: 10,
+  secondSentence: 10,
+  secondText: 20
+};
+
+function overviewScoreFromPercent_(percent, fullScore) {
   const value = Number(percent);
   if (isNaN(value)) return NaN;
-  return report && report.type === 'RT' ? round2_(value * 0.5) : value;
+  return round2_(value * (Number(fullScore) || 100) / 100);
 }
 
-function overviewFullScore_(report) {
-  return report && report.type === 'RT' ? 50 : 100;
+function rtOverviewFullScore_(subject, label) {
+  if (!label) {
+    if (subject === 'total') return RT_OVERVIEW_FULL_SCORES_.total;
+    if (subject === 'first') return RT_OVERVIEW_FULL_SCORES_.first;
+    if (subject === 'second') return RT_OVERVIEW_FULL_SCORES_.second;
+    return RT_OVERVIEW_FULL_SCORES_.total;
+  }
+
+  const text = String(label).replace(/\s+/g, ' ').trim();
+  if (subject === 'first') {
+    if (/คำ/.test(text)) return RT_OVERVIEW_FULL_SCORES_.firstWord;
+    if (/ข้อความ/.test(text)) return RT_OVERVIEW_FULL_SCORES_.firstText;
+  }
+  if (subject === 'second') {
+    if (/ประโยค/.test(text)) return RT_OVERVIEW_FULL_SCORES_.secondSentence;
+    if (/คำ/.test(text)) return RT_OVERVIEW_FULL_SCORES_.secondWord;
+    if (/ข้อความ/.test(text)) return RT_OVERVIEW_FULL_SCORES_.secondText;
+  }
+  return RT_OVERVIEW_FULL_SCORES_.total;
+}
+
+function overviewFullScore_(report, rtSubject, rtLabel) {
+  if (!report || report.type !== 'RT') return 100;
+  return rtOverviewFullScore_(rtSubject, rtLabel);
 }
 
 function buildOverviewTables_(data) {
   const students = safeArray_(data && data.students);
   const summary = data.summary;
   const report = data.report;
-  const totalScores = students.map(s => overviewScoreFromPercent_(s.totalAvg, report)).filter(x => !isNaN(Number(x)));
+  const totalFullScore = overviewFullScore_(report, 'total');
+  const totalScores = students.map(s => overviewScoreFromPercent_(s.totalAvg, totalFullScore)).filter(x => !isNaN(Number(x)));
   const topTable = [{
     item: report.overallLabel,
     academicYear: report.academicYear || '2568',
-    fullScore: overviewFullScore_(report),
+    fullScore: totalFullScore,
     max: max_(totalScores),
     min: min_(totalScores),
     avg: round2_(average_(totalScores)),
@@ -798,13 +918,13 @@ function buildOverviewTables_(data) {
 
   const detailMap = {};
   const order = [];
-  function addValues(key, label, values, displayLabel) {
+  function addValues(key, label, values, displayLabel, fullScore) {
     if (!detailMap[key]) {
       detailMap[key] = {
         key: key,
         label: displayLabel || label,
         rawLabel: label,
-        fullScore: overviewFullScore_(report),
+        fullScore: typeof fullScore === 'number' ? fullScore : overviewFullScore_(report),
         values: [],
         percentValues: []
       };
@@ -812,7 +932,7 @@ function buildOverviewTables_(data) {
     }
     const percentValues = values.filter(x => !isNaN(Number(x)));
     detailMap[key].percentValues = detailMap[key].percentValues.concat(percentValues);
-    detailMap[key].values = detailMap[key].values.concat(percentValues.map(x => overviewScoreFromPercent_(x, report)));
+    detailMap[key].values = detailMap[key].values.concat(percentValues.map(x => overviewScoreFromPercent_(x, detailMap[key].fullScore)));
   }
 
   if (report.type === 'ONET') {
@@ -820,33 +940,20 @@ function buildOverviewTables_(data) {
       addValues('onet_' + sub.key, sub.label, students.map(s => s.subjects && s.subjects[sub.key] && s.subjects[sub.key].metrics[0] ? s.subjects[sub.key].metrics[0].percent : NaN));
     });
   } else if (report.type === 'RT') {
-    addValues('subject_first', 'การอ่านออกเสียง', students.map(s => s.mathAvg), '1. การอ่านออกเสียง');
+    addValues('subject_first', 'การอ่านออกเสียง', students.map(s => s.mathAvg), '1. การอ่านออกเสียง', overviewFullScore_(report, 'first'));
     safeArray_(students).forEach(st => {
       safeArray_(st.detailRows).filter(r => r && r.subject === report.firstLabel && detailRowForOverview_(r.label, report.type, r.subject)).forEach(r => {
-        addValues('first_' + r.label, r.label, [r.percent], rtOverviewLabel_(report.firstLabel, r.label));
+        addValues('first_' + r.label, r.label, [r.percent], rtOverviewLabel_(report.firstLabel, r.label), overviewFullScore_(report, 'first', r.label));
       });
     });
 
-    addValues('subject_second', 'การอ่านรู้เรื่อง', students.map(s => s.thaiAvg), '2. การอ่านรู้เรื่อง');
+    addValues('subject_second', 'การอ่านรู้เรื่อง', students.map(s => s.thaiAvg), '2. การอ่านรู้เรื่อง', overviewFullScore_(report, 'second'));
     safeArray_(students).forEach(st => {
       safeArray_(st.detailRows).filter(r => r && r.subject === report.secondLabel && detailRowForOverview_(r.label, report.type, r.subject)).forEach(r => {
-        addValues('second_' + r.label, r.label, [r.percent], rtOverviewLabel_(report.secondLabel, r.label));
+        addValues('second_' + r.label, r.label, [r.percent], rtOverviewLabel_(report.secondLabel, r.label), overviewFullScore_(report, 'second', r.label));
       });
     });
 
-    // แสดงแถวตามแบบฟอร์ม RT แม้ไฟล์ต้นทางไม่มีองค์ประกอบแยกบางรายการ เพื่อให้รูปแบบตรงตามเอกสาร
-    if (!detailMap['second_sentence_choice']) {
-      detailMap['second_sentence_choice'] = {
-        key: 'second_sentence_choice',
-        label: '- อ่านรู้เรื่องประโยค (เลือกตอบ)',
-        rawLabel: 'อ่านรู้เรื่องประโยค (เลือกตอบ)',
-        fullScore: overviewFullScore_(report),
-        values: [],
-        percentValues: [],
-        isPlaceholder: true
-      };
-      order.push('second_sentence_choice');
-    }
   } else {
     addValues('subject_first', report.firstLabel, students.map(s => s.mathAvg));
     safeArray_(students).forEach(st => {
@@ -913,9 +1020,9 @@ function rtOverviewLabel_(subject, label) {
     return '- ' + label.replace(/^การ/, '');
   }
   if (/อ่านรู้เรื่อง/.test(subject || '')) {
-    if (/คำ/.test(label)) return '- อ่านรู้เรื่องคำ (จับภาพ)';
-    if (/ข้อความ/.test(label)) return '- อ่านรู้เรื่องข้อความ';
-    if (/ประโยค/.test(label)) return '- อ่านรู้เรื่องประโยค (เล่าเรื่องจากภาพ)';
+    if (/ประโยค/.test(label)) return '- การอ่านประโยค';
+    if (/คำ/.test(label)) return '- การอ่านคำ';
+    if (/ข้อความ/.test(label)) return '- การอ่านข้อความ';
     return '- ' + label.replace(/^การ/, '');
   }
   return label;
@@ -982,11 +1089,11 @@ function buildActivitySuggestions_(items, report) {
   items.forEach(x => {
     const text = `${x.subject} ${x.label}`;
     if (report && report.type === 'RT') {
-      if (/อ่านออกเสียง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('การอ่านคำ: ฝึกอ่านคำพื้นฐานวันละ 10 นาที ใช้บัตรคำ เกมจับคู่คำกับภาพ และอ่านซ้ำเพื่อเพิ่มความคล่องแคล่ว');
-      else if (/อ่านออกเสียง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('การอ่านข้อความ: ฝึกอ่านประโยคและข้อความสั้นแบบเป็นจังหวะ ครูอ่านนำ นักเรียนอ่านตาม แล้วจับเวลาอ่านอย่างเหมาะสม');
-      else if (/อ่านรู้เรื่อง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านคำ: ฝึกจับคู่คำกับความหมาย เลือกภาพแทนคำ และใช้คำแต่งประโยคสั้น ๆ');
-      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ประโยค/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านประโยค: ให้นักเรียนอ่านประโยคแล้วตอบคำถามสั้น ๆ เลือกภาพที่ตรงกับประโยค และเรียงลำดับเหตุการณ์');
-      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('อ่านรู้เรื่อง-การอ่านข้อความ: ใช้กิจกรรมอ่านนิทานสั้น ตอบคำถาม 5W1H และขีดเส้นใต้หลักฐานจากเรื่อง');
+      if (/อ่านออกเสียง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('อ่านเป็นคำ: ฝึกอ่านคำพื้นฐานวันละ 10 นาที ใช้บัตรคำ เกมจับคู่คำกับภาพ และอ่านซ้ำเพื่อเพิ่มความคล่องแคล่ว');
+      else if (/อ่านออกเสียง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('อ่านเป็นข้อความ: ฝึกอ่านประโยคและข้อความสั้นแบบเป็นจังหวะ ครูอ่านนำ นักเรียนอ่านตาม แล้วจับเวลาอ่านอย่างเหมาะสม');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /อ่านคำ/.test(x.label)) output.push('การอ่านคำ: ฝึกจับคู่คำกับความหมาย เลือกภาพแทนคำ และใช้คำแต่งประโยคสั้น ๆ');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ประโยค/.test(x.label)) output.push('การอ่านประโยค: ให้นักเรียนอ่านประโยคแล้วตอบคำถามสั้น ๆ เลือกภาพที่ตรงกับประโยค และเรียงลำดับเหตุการณ์');
+      else if (/อ่านรู้เรื่อง/.test(x.subject) && /ข้อความ/.test(x.label)) output.push('การอ่านข้อความ: ใช้กิจกรรมอ่านนิทานสั้น ตอบคำถาม 5W1H และขีดเส้นใต้หลักฐานจากเรื่อง');
       else output.push(`${text}: จัดแบบฝึกอ่านรายกลุ่มและติดตามผลด้วยแบบทดสอบสั้นหลังเรียน`);
       return;
     }
@@ -1120,8 +1227,16 @@ function shortenLabel_(subject, label, report) {
   }
 
   if (report && report.type === 'RT') {
-    const prefix = cleanSubject === report.firstLabel ? 'ออกเสียง ' : 'รู้เรื่อง ';
-    return prefix + cleanLabel.replace('การ', '');
+    if (cleanSubject === report.firstLabel) {
+      if (/คำ/.test(cleanLabel)) return 'อ่านเป็นคำ';
+      if (/ข้อความ/.test(cleanLabel)) return 'อ่านเป็นข้อความ';
+    }
+    if (cleanSubject === report.secondLabel) {
+      if (/ประโยค/.test(cleanLabel)) return 'การอ่านประโยค';
+      if (/คำ/.test(cleanLabel)) return 'การอ่านคำ';
+      if (/ข้อความ/.test(cleanLabel)) return 'การอ่านข้อความ';
+    }
+    return cleanLabel || cleanSubject || '-';
   }
 
   // NT ใช้ชื่อย่อเพื่อไม่ให้ label ยาวเกินไปในกราฟ

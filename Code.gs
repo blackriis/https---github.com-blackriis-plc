@@ -2,6 +2,73 @@ const CONFIG = {
   SCHOOL_NAME_FALLBACK: 'โรงเรียน'
 };
 
+// รายงานสถิติ RT / NT / O-NET ต้องไม่นำเด็กพิเศษและผู้ขาดสอบมาคิด
+// O-NET ใช้เครื่องหมาย + ต่อท้ายเลขที่นั่งสอบเพื่อระบุเด็กพิเศษ
+const RE_SPECIAL_STUDENT_ = /เด็ก\s*พิเศษ|บกพร่อง|ความพิการ|พิการ|\+\s*$/i;
+const RE_ABSENT_STUDENT_ = /ขาดสอบ|ขาดการสอบ|ไม่\s*เข้าสอบ|ไม่\s*มาสอบ|ไม่\s*ฝนกระดาษคำตอบ|เข้าสอบรอบพิเศษ/i;
+
+function statisticsExclusionReason_(student, sourceText) {
+  const seatNo = String(student && student.seatNo || '');
+  const text = [
+    seatNo,
+    student && student.type,
+    student && student.name,
+    sourceText
+  ].filter(Boolean).join(' | ');
+  if (/\+\s*$/.test(seatNo)) return 'เด็กพิเศษ';
+  if (RE_SPECIAL_STUDENT_.test(text)) return 'เด็กพิเศษ';
+  if (RE_ABSENT_STUDENT_.test(text)) return 'ขาดสอบ';
+  return '';
+}
+
+function splitStatisticsStudents_(students) {
+  const included = [];
+  const excluded = [];
+  safeArray_(students).forEach(student => {
+    const reason = statisticsExclusionReason_(student, student && student.statisticsSourceText);
+    // ข้อมูลนี้ใช้เฉพาะระหว่างแยกกลุ่ม ไม่ส่งข้อความทั้งแถวไปหน้าเว็บ
+    if (student) delete student.statisticsSourceText;
+    if (reason) {
+      excluded.push({ reason: reason });
+      return;
+    }
+    included.push(student);
+  });
+  return { included: included, excluded: excluded };
+}
+
+function buildStatisticsSummary_(students, excluded) {
+  const counted = safeArray_(students);
+  const omitted = safeArray_(excluded);
+  return {
+    // totalStudents คือจำนวนผู้เข้าสอบที่ใช้เป็นฐานคำนวณในทุกตาราง/กราฟ
+    totalStudents: counted.length,
+    registeredStudents: counted.length + omitted.length,
+    excludedStudents: omitted.length,
+    excludedSpecialCount: omitted.filter(x => x.reason === 'เด็กพิเศษ').length,
+    excludedAbsentCount: omitted.filter(x => x.reason === 'ขาดสอบ').length,
+    mathAvg: round2_(average_(counted.map(s => s.mathAvg))),
+    thaiAvg: round2_(average_(counted.map(s => s.thaiAvg))),
+    scienceAvg: round2_(average_(counted.map(s => s.scienceAvg))),
+    englishAvg: round2_(average_(counted.map(s => s.englishAvg))),
+    totalAvg: round2_(average_(counted.map(s => s.totalAvg))),
+    veryGoodCount: counted.filter(s => s && s.quality === 'ดีมาก').length,
+    goodCount: counted.filter(s => s && s.quality === 'ดี').length,
+    fairCount: counted.filter(s => s && s.quality === 'พอใช้').length,
+    improveCount: counted.filter(s => s && s.quality === 'ปรับปรุง').length
+  };
+}
+
+function statisticsBasisText_(summary) {
+  const s = summary || {};
+  const excluded = [];
+  if (s.excludedSpecialCount) excluded.push('เด็กพิเศษ ' + s.excludedSpecialCount + ' คน');
+  if (s.excludedAbsentCount) excluded.push('ขาดสอบ ' + s.excludedAbsentCount + ' คน');
+  return excluded.length
+    ? 'คำนวณจากผู้เข้าสอบ ' + s.totalStudents + ' คน (ไม่นำ' + excluded.join(' และ ') + 'มาคิดสถิติ)'
+    : 'คำนวณจากผู้เข้าสอบ ' + s.totalStudents + ' คน';
+}
+
 function doGet() {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
@@ -206,11 +273,14 @@ function processSheet_(sheet, values, sheetIndex) {
           name: row.name,
           maskedName: maskSurname_(row.name),
           type: row.type,
+          statisticsSourceText: row.type,
           subjects: {},
           totals: null,
           detailRows: []
         };
       }
+      if (row.type && !studentsMap[id].type) studentsMap[id].type = row.type;
+      if (row.type) studentsMap[id].statisticsSourceText = [studentsMap[id].statisticsSourceText, row.type].filter(Boolean).join(' | ');
       studentsMap[id].subjects[section.key] = row;
       safeArray_(row.metrics).forEach(m => {
         studentsMap[id].detailRows.push({
@@ -233,7 +303,7 @@ function processSheet_(sheet, values, sheetIndex) {
     });
   }
 
-  const students = Object.values(studentsMap).map(s => {
+  const allStudents = Object.values(studentsMap).map(s => {
     const firstStrands = getStrandMetrics_(s.subjects && s.subjects.first ? s.subjects.first.metrics : [], report.firstLabel, report.type, report.firstQualityType);
     const secondStrands = getStrandMetrics_(s.subjects && s.subjects.second ? s.subjects.second.metrics : [], report.secondLabel, report.type, report.secondQualityType);
     s.strands = firstStrands.concat(secondStrands);
@@ -244,6 +314,9 @@ function processSheet_(sheet, values, sheetIndex) {
     s.quality = qualityLevel_(s.totalAvg, report.totalQualityType);
     return s;
   }).sort((a,b)=> Number(a.no || 0) - Number(b.no || 0));
+
+  const statisticsStudents = splitStatisticsStudents_(allStudents);
+  const students = statisticsStudents.included;
 
   const strandAverages = [];
   const allKeys = {};
@@ -260,16 +333,7 @@ function processSheet_(sheet, values, sheetIndex) {
     level: qualityLevel_(average_(x.values), x.subject === report.firstLabel ? report.firstQualityType : report.secondQualityType)
   }));
 
-  const summary = {
-    totalStudents: students.length,
-    mathAvg: round2_(average_(students.map(s => s.mathAvg))),
-    thaiAvg: round2_(average_(students.map(s => s.thaiAvg))),
-    totalAvg: round2_(average_(students.map(s => s.totalAvg))),
-    veryGoodCount: safeArray_(students).filter(s => s && s.quality === 'ดีมาก').length,
-    goodCount: safeArray_(students).filter(s => s && s.quality === 'ดี').length,
-    fairCount: safeArray_(students).filter(s => s && s.quality === 'พอใช้').length,
-    improveCount: safeArray_(students).filter(s => s && s.quality === 'ปรับปรุง').length
-  };
+  const summary = buildStatisticsSummary_(students, statisticsStudents.excluded);
 
   const data = { report, school, sections, totalSection, students, strandAverages, summary };
   return {
@@ -321,6 +385,7 @@ function processOnetSheet_(sheet, values, sheetIndex, school, report) {
       name: name,
       maskedName: maskSurname_(name),
       type: report.typeLabel || ('O-NET ' + (report.grade || '')),
+      statisticsSourceText: row.join(' | '),
       subjects: {},
       detailRows: [],
       strands: []
@@ -347,26 +412,18 @@ function processOnetSheet_(sheet, values, sheetIndex, school, report) {
     students.push(st);
   }
 
+  const statisticsStudents = splitStatisticsStudents_(students);
+  const statisticsOnlyStudents = statisticsStudents.included;
+
   const strandAverages = subjects.map(sub => {
-    const vals = students.map(s => s.subjects[sub.key] ? s.subjects[sub.key].metrics[0].percent : NaN).filter(x => !isNaN(Number(x)));
+    const vals = statisticsOnlyStudents.map(s => s.subjects[sub.key] ? s.subjects[sub.key].metrics[0].percent : NaN).filter(x => !isNaN(Number(x)));
     const avg = round2_(average_(vals));
     return { subject: 'O-NET', label: sub.label, shortLabel: sub.short, avg: avg, level: qualityLevel_(avg, sub.qualityType) };
   });
 
-  const summary = {
-    totalStudents: students.length,
-    mathAvg: round2_(average_(students.map(s => s.mathAvg))),
-    thaiAvg: round2_(average_(students.map(s => s.thaiAvg))),
-    scienceAvg: round2_(average_(students.map(s => s.scienceAvg))),
-    englishAvg: round2_(average_(students.map(s => s.englishAvg))),
-    totalAvg: round2_(average_(students.map(s => s.totalAvg))),
-    veryGoodCount: safeArray_(students).filter(s => s && s.quality === 'ดีมาก').length,
-    goodCount: safeArray_(students).filter(s => s && s.quality === 'ดี').length,
-    fairCount: safeArray_(students).filter(s => s && s.quality === 'พอใช้').length,
-    improveCount: safeArray_(students).filter(s => s && s.quality === 'ปรับปรุง').length
-  };
+  const summary = buildStatisticsSummary_(statisticsOnlyStudents, statisticsStudents.excluded);
 
-  const data = { report, school, sections: [], totalSection: null, students, strandAverages, summary };
+  const data = { report, school, sections: [], totalSection: null, students: statisticsOnlyStudents, strandAverages, summary };
   return {
     mode: 'REPORT',
     report: data.report,
@@ -708,15 +765,27 @@ function totalAverageFromRow_(row) {
   return totalMetric ? totalMetric.percent : average_(metrics.map(m => m.percent));
 }
 
+// ตารางสรุป RT ต้องแสดงคะแนนจริงจากคะแนนเต็ม 50 คะแนน
+// ส่วนกราฟและระดับคุณภาพยังใช้ร้อยละ เพื่อให้เกณฑ์คุณภาพเดิมไม่เปลี่ยน
+function overviewScoreFromPercent_(percent, report) {
+  const value = Number(percent);
+  if (isNaN(value)) return NaN;
+  return report && report.type === 'RT' ? round2_(value * 0.5) : value;
+}
+
+function overviewFullScore_(report) {
+  return report && report.type === 'RT' ? 50 : 100;
+}
+
 function buildOverviewTables_(data) {
   const students = safeArray_(data && data.students);
   const summary = data.summary;
   const report = data.report;
-  const totalScores = students.map(s => s.totalAvg).filter(x => !isNaN(Number(x)));
+  const totalScores = students.map(s => overviewScoreFromPercent_(s.totalAvg, report)).filter(x => !isNaN(Number(x)));
   const topTable = [{
     item: report.overallLabel,
     academicYear: report.academicYear || '2568',
-    fullScore: 100,
+    fullScore: overviewFullScore_(report),
     max: max_(totalScores),
     min: min_(totalScores),
     avg: round2_(average_(totalScores)),
@@ -731,10 +800,19 @@ function buildOverviewTables_(data) {
   const order = [];
   function addValues(key, label, values, displayLabel) {
     if (!detailMap[key]) {
-      detailMap[key] = { key: key, label: displayLabel || label, rawLabel: label, fullScore: 100, values: [] };
+      detailMap[key] = {
+        key: key,
+        label: displayLabel || label,
+        rawLabel: label,
+        fullScore: overviewFullScore_(report),
+        values: [],
+        percentValues: []
+      };
       order.push(key);
     }
-    detailMap[key].values = detailMap[key].values.concat(values.filter(x => !isNaN(Number(x))));
+    const percentValues = values.filter(x => !isNaN(Number(x)));
+    detailMap[key].percentValues = detailMap[key].percentValues.concat(percentValues);
+    detailMap[key].values = detailMap[key].values.concat(percentValues.map(x => overviewScoreFromPercent_(x, report)));
   }
 
   if (report.type === 'ONET') {
@@ -758,7 +836,15 @@ function buildOverviewTables_(data) {
 
     // แสดงแถวตามแบบฟอร์ม RT แม้ไฟล์ต้นทางไม่มีองค์ประกอบแยกบางรายการ เพื่อให้รูปแบบตรงตามเอกสาร
     if (!detailMap['second_sentence_choice']) {
-      detailMap['second_sentence_choice'] = { key: 'second_sentence_choice', label: '- อ่านรู้เรื่องประโยค (เลือกตอบ)', rawLabel: 'อ่านรู้เรื่องประโยค (เลือกตอบ)', fullScore: 100, values: [], isPlaceholder: true };
+      detailMap['second_sentence_choice'] = {
+        key: 'second_sentence_choice',
+        label: '- อ่านรู้เรื่องประโยค (เลือกตอบ)',
+        rawLabel: 'อ่านรู้เรื่องประโยค (เลือกตอบ)',
+        fullScore: overviewFullScore_(report),
+        values: [],
+        percentValues: [],
+        isPlaceholder: true
+      };
       order.push('second_sentence_choice');
     }
   } else {
@@ -780,6 +866,7 @@ function buildOverviewTables_(data) {
   const detailRows = order.map(key => {
     const row = detailMap[key];
     const vals = row.values;
+    const percentVals = row.percentValues;
     const avg = average_(vals);
     const sd = sd_(vals);
     return {
@@ -790,17 +877,19 @@ function buildOverviewTables_(data) {
       max: vals.length ? max_(vals) : '',
       min: vals.length ? min_(vals) : '',
       avg: vals.length ? round2_(avg) : '',
+      percentAvg: percentVals.length ? round2_(average_(percentVals)) : '',
       sd: vals.length ? round2_(sd) : '',
       cv: vals.length && avg ? round2_((sd / avg) * 100) : (vals.length ? 0 : '')
     };
   });
 
   const rtProblemRows = report.type === 'RT'
-    ? detailRows.filter(r => /^-/.test(String(r.item)) && r.avg !== '' && Number(r.avg) < 60).map(r => String(r.item).replace(/^[-\s]+/, ''))
+    ? detailRows.filter(r => /^-/.test(String(r.item)) && r.percentAvg !== '' && Number(r.percentAvg) < 60).map(r => String(r.item).replace(/^[-\s]+/, ''))
     : [];
 
   return {
     improveText: 'นักเรียนระดับปรับปรุง จำนวน ' + summary.improveCount + ' คน',
+    statisticsText: statisticsBasisText_(summary),
     topTable: topTable,
     detailRows: detailRows,
     rtProblemText: rtProblemRows.length ? rtProblemRows.join(', ') : 'ไม่มีความสามารถที่ต่ำกว่าเกณฑ์เร่งด่วน'
@@ -850,9 +939,9 @@ function schoolOverviewText_(data) {
   const r = data.report || {};
   if (r.type === 'ONET') {
     const parts = safeArray_(r.onetSubjects).map(sub => `${sub.short || sub.label}เฉลี่ย ${subjectAvgFromSummary_(data.summary, sub.key)}%`);
-    return `คะแนนเฉลี่ยรวม O-NET ของโรงเรียนอยู่ที่ ${data.summary.totalAvg}% (${qualityLevel_(data.summary.totalAvg, r.totalQualityType)}) ${parts.join(' • ')} จากนักเรียน ${data.summary.totalStudents} คน`;
+    return `คะแนนเฉลี่ยรวม O-NET ของโรงเรียนอยู่ที่ ${data.summary.totalAvg}% (${qualityLevel_(data.summary.totalAvg, r.totalQualityType)}) ${parts.join(' • ')} ${statisticsBasisText_(data.summary)}`;
   }
-  return `คะแนนเฉลี่ยรวมของโรงเรียนอยู่ที่ ${data.summary.totalAvg}% (${qualityLevel_(data.summary.totalAvg, r.totalQualityType)}) ${r.firstShort}เฉลี่ย ${data.summary.mathAvg}% และ${r.secondShort}เฉลี่ย ${data.summary.thaiAvg}% จากนักเรียน ${data.summary.totalStudents} คน`;
+  return `คะแนนเฉลี่ยรวมของโรงเรียนอยู่ที่ ${data.summary.totalAvg}% (${qualityLevel_(data.summary.totalAvg, r.totalQualityType)}) ${r.firstShort}เฉลี่ย ${data.summary.mathAvg}% และ${r.secondShort}เฉลี่ย ${data.summary.thaiAvg}% ${statisticsBasisText_(data.summary)}`;
 }
 
 function studentOverviewText_(student, report) {

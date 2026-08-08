@@ -112,7 +112,7 @@
             <tr>
               <th class="border border-slate-300 p-2 text-left">ประเภท</th>
               <th class="border border-slate-300 p-2">ชั้น</th>
-              <th class="border border-slate-300 p-2">จำนวนนักเรียน</th>
+              <th class="border border-slate-300 p-2">ผู้เข้าสอบที่คิดสถิติ</th>
               <th class="border border-slate-300 p-2">ด้านที่ 1</th>
               <th class="border border-slate-300 p-2">ด้านที่ 2</th>
               <th class="border border-slate-300 p-2">เฉลี่ยรวม</th>
@@ -131,7 +131,7 @@
             <tr>
               <th class="border border-slate-300 p-2 text-left">ประเภท</th>
               <th class="border border-slate-300 p-2">ชั้น</th>
-              <th class="border border-slate-300 p-2">จำนวนนักเรียน</th>
+              <th class="border border-slate-300 p-2">ผู้เข้าสอบที่คิดสถิติ</th>
               <th class="border border-slate-300 p-2">ภาษาไทย</th>
               <th class="border border-slate-300 p-2">คณิตศาสตร์</th>
               <th class="border border-slate-300 p-2">วิทยาศาสตร์</th>
@@ -419,7 +419,7 @@ function renderCombinedDashboard(data) {
     const metricCards = isOnet
       ? onetSubjectCardsHtml_(r)
       : `
-        <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">นักเรียน</div><div class="font-bold text-lg">${r.summary.totalStudents} คน</div></div>
+        <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">ผู้เข้าสอบ (คิดสถิติ)</div><div class="font-bold text-lg">${r.summary.totalStudents} คน</div></div>
         <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">${escapeHtml_(r.firstShort || 'ด้านที่ 1')}</div><div class="font-bold text-lg">${r.summary.mathAvg}%</div></div>
         <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">${escapeHtml_(r.secondShort || 'ด้านที่ 2')}</div><div class="font-bold text-lg">${r.summary.thaiAvg}%</div></div>
         <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">ต้องปรับปรุง</div><div class="font-bold text-lg">${r.summary.improveCount} คน</div></div>`;
@@ -507,7 +507,7 @@ function renderDashboard(data) {
     document.getElementById('kpi').innerHTML = buildOnetKpiCards_(data).join('');
   } else {
     document.getElementById('kpi').innerHTML = [
-      kpiCard('นักเรียน', data.summary.totalStudents + ' คน'),
+      kpiCard('ผู้เข้าสอบ (คิดสถิติ)', data.summary.totalStudents + ' คน'),
       kpiCard(report.firstShort || 'ด้านที่ 1', data.summary.mathAvg + '%'),
       kpiCard(report.secondShort || 'ด้านที่ 2', data.summary.thaiAvg + '%'),
       kpiCard('เฉลี่ยรวม', data.summary.totalAvg + '%'),
@@ -552,7 +552,7 @@ function subjectAverageValue_(summary, key) {
 function buildOnetKpiCards_(data) {
   const report = data.report || {};
   const summary = data.summary || {};
-  const cards = [kpiCard('นักเรียน', (summary.totalStudents || 0) + ' คน')];
+  const cards = [kpiCard('ผู้เข้าสอบ (คิดสถิติ)', (summary.totalStudents || 0) + ' คน')];
   getOnetSubjects_(report).forEach(sub => cards.push(kpiCard(sub.short || sub.label, subjectAverageValue_(summary, sub.key) + '%')));
   return cards;
 }
@@ -560,7 +560,7 @@ function buildOnetKpiCards_(data) {
 function onetSubjectCardsHtml_(r) {
   const subjectCards = getOnetSubjects_(r).map(sub => `
     <div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">${escapeHtml_(sub.short || sub.label)}</div><div class="font-bold text-lg">${subjectAverageValue_(r.summary, sub.key)}%</div></div>`).join('');
-  return `<div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">นักเรียน</div><div class="font-bold text-lg">${r.summary.totalStudents} คน</div></div>${subjectCards}`;
+  return `<div class="rounded-2xl bg-slate-50 p-3"><div class="text-slate-500">ผู้เข้าสอบ (คิดสถิติ)</div><div class="font-bold text-lg">${r.summary.totalStudents} คน</div></div>${subjectCards}`;
 }
 
 function onetSubjectText_(r) {
@@ -570,7 +570,7 @@ function onetSubjectText_(r) {
 
 function renderOverviewTables(tables) {
   if (!tables) return;
-  document.getElementById('improveText').textContent = tables.improveText || '';
+  document.getElementById('improveText').textContent = [tables.improveText, tables.statisticsText].filter(Boolean).join(' • ');
   document.getElementById('overviewTopTable').innerHTML = (tables.topTable || []).map(r => `
     <tr>
       <td class="border border-slate-300 p-2 font-semibold">${formatOverviewItem_(r)}</td>
